@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+
+{% block title %}首页 - 校园博客{% endblock %}
+
+{% block content %}
+<div class="jumbotron">
+    <h1 class="display-4">欢迎来到校园博客!</h1>
+    <p class="lead">这是一个分享知识、交流思想的平台，我们欢迎每一位热爱学习和分享的同学。</p>
+    <hr class="my-4">
+    <p>在这里，你可以发表自己的文章，阅读他人的见解，参与讨论，共同成长。</p>
+    <a class="btn btn-primary btn-lg" href="{% url 'about' %}" role="button">了解更多</a>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">最新文章</h5>
+                <p class="card-text">查看最新发布的博客文章，了解校园热点和学术动态。</p>
+                <a href="#" class="btn btn-primary">查看更多</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">热门话题</h5>
+                <p class="card-text">发现当前最受欢迎的话题，参与讨论，分享你的观点。</p>
+                <a href="#" class="btn btn-primary">查看更多</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">作者推荐</h5>
+                <p class="card-text">认识校园内的优秀作者，关注他们的最新动态。</p>
+                <a href="#" class="btn btn-primary">查看更多</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

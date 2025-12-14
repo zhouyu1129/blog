@@ -1,0 +1,132 @@
+{% extends 'base.html' %}
+
+{% block title %}关于 - 校园博客{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-12">
+        <div class="page-header">
+            <h1 class="display-4">关于校园博客</h1>
+            <p class="lead">分享知识，交流思想，共同成长</p>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h3 class="mb-0">我们的使命</h3>
+            </div>
+            <div class="card-body">
+                <p>校园博客是一个致力于为学生提供知识分享和交流的平台。我们相信每个人都有独特的见解和经验，通过分享和讨论，我们可以共同学习和成长。</p>
+                <p>我们的目标是创建一个开放、包容、积极向上的学习社区，鼓励学生表达自己的想法，分享学习心得，探讨学术问题。</p>
+            </div>
+        </div>
+        
+        <div class="card mt-4">
+            <div class="card-header bg-info text-white">
+                <h3 class="mb-0">平台特色</h3>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h5><span class="badge badge-primary mr-2">📚</span> 丰富的内容</h5>
+                        <p>涵盖学术研究、生活经验、技术分享等多个领域的文章。</p>
+                    </div>
+                    <div class="col-md-6">
+                        <h5><span class="badge badge-info mr-2">👥</span> 活跃的社区</h5>
+                        <p>来自不同专业背景的学生，带来多元化的观点和讨论。</p>
+                    </div>
+                </div>
+                <div class="row mt-3">
+                    <div class="col-md-6">
+                        <h5><span class="badge badge-success mr-2">💬</span> 互动交流</h5>
+                        <p>评论、点赞、分享功能，促进思想的碰撞和交流。</p>
+                    </div>
+                    <div class="col-md-6">
+                        <h5><span class="badge badge-warning mr-2">🏆</span> 优质内容</h5>
+                        <p>通过推荐和精选机制，确保高质量内容的传播。</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h4 class="mb-0">开发团队</h4>
+            </div>
+            <div class="card-body text-center">
+                <img src="{% static 'img/demo/avatar.png' %}" class="rounded-circle img-fluid mb-3" alt="作者头像" style="max-width: 150px;">
+                <h5>周煜</h5>
+                <p class="text-muted">项目负责人 & 主要开发者</p>
+                <p>热爱编程和分享，致力于打造一个优质的校园交流平台。</p>
+                <div class="mt-3">
+                    <a href="https://github.com/zhouyu1129" class="btn btn-outline-primary btn-sm mr-2">GitHub</a>
+                    <a href="mailto:3123008706@mail2.gdut.edu.cn" class="btn btn-outline-info btn-sm">邮箱</a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card mt-4">
+            <div class="card-header bg-warning text-dark">
+                <h4 class="mb-0">联系我们</h4>
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled">
+                    <li class="mb-2"><span class="mr-2">📧</span> 邮箱: 3123008706@mail2.gdut.edu.cn</li>
+                    <li class="mb-2"><span class="mr-2">📍</span> 地址: 中国·广东</li>
+                    <li class="mb-2"><span class="mr-2">📞</span> 电话: +86 134 3070 4474</li>
+                </ul>
+                <hr>
+                <p class="text-center">关注我们的社交媒体</p>
+                <div class="text-center">
+                    <a href="https://www.bilibili.com/video/BV1UT42167xb" class="btn btn-outline-primary btn-sm mr-2">微信</a>
+                    <a href="https://www.bilibili.com/video/BV1UT42167xb" class="btn btn-outline-info btn-sm mr-2">微博</a>
+                    <a href="https://www.bilibili.com/video/BV1UT42167xb" class="btn btn-outline-danger btn-sm">B站</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-5">
+    <div class="col-lg-12">
+        <div class="card">
+            <div class="card-header bg-secondary text-white">
+                <h3 class="mb-0">技术栈</h3>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3 text-center mb-4">
+                        <div class="mb-3" style="font-size: 3rem; color: #3776ab;">🐍</div>
+                        <h5>Python</h5>
+                        <p class="text-muted">后端开发语言</p>
+                    </div>
+                    <div class="col-md-3 text-center mb-4">
+                        <div class="mb-3" style="font-size: 3rem; color: #092e20;">🎯</div>
+                        <h5>Django</h5>
+                        <p class="text-muted">Web框架</p>
+                    </div>
+                    <div class="col-md-3 text-center mb-4">
+                        <div class="mb-3" style="font-size: 3rem; color: #7952b3;">🎨</div>
+                        <h5>Bootstrap</h5>
+                        <p class="text-muted">前端框架</p>
+                    </div>
+                    <div class="col-md-3 text-center mb-4">
+                        <div class="mb-3" style="font-size: 3rem; color: #336791;">📄</div>
+                        <h5>PostgreSQL</h5>
+                        <p class="text-muted">数据库</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- 本地不需要额外的JS库 -->
+{% endblock %}
