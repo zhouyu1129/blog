@@ -14,11 +14,13 @@ def validate_student_number(value):
 
 
 def validate_username(value):
-    """验证用户名是否为ASCII字符且不包含空格"""
+    """验证用户名是否为ASCII字符且不包含空格和@符号"""
     if not re.match(r'^[\x00-\x7F]+', value):
         raise ValidationError('用户名只能包含ASCII字符')
     if ' ' in value:
         raise ValidationError('用户名不能包含空格')
+    if '@' in value:
+        raise ValidationError('用户名不能包含@符号')
 
 
 def validate_mobile(value):

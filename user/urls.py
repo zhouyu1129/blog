@@ -13,4 +13,6 @@ urlpatterns = [
     path('profile/change_email', change_email_view, name="change_email"),
     path('profile/change_password', change_password_view, name="change_password"),
     path('profile/send_email_code', send_email_code_view, name="send_email_code"),
+    path('forgot_password', forgot_password_view, name="forgot_password"),
+    path('reset_password/<uuid:user_uuid>/<str:reset_hash>', reset_password_view, name="reset_password"),
 ]

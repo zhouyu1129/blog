@@ -54,14 +54,26 @@ def login_view(request):
     if request.method == "GET":
         return render(request, 'login.html')
     else:
-        email = request.POST.get('email')
+        login_input = request.POST.get('email')  # 可以是邮箱或用户名
         password = request.POST.get('password')
+        
+        if not login_input or not password:
+            messages.error(request, '请输入邮箱/用户名和密码')
+            return render(request, 'login.html')
 
-        # 首先检查用户是否存在，以便提供更具体的错误信息
+        # 判断输入的是邮箱还是用户名
+        is_email = '@' in login_input
+        
         try:
-            user_obj = CustomUser.objects.get(email=email)
+            if is_email:
+                # 使用邮箱查找用户
+                user_obj = CustomUser.objects.get(email=login_input)
+            else:
+                # 使用用户名查找用户
+                user_obj = CustomUser.objects.get(username=login_input)
+                
             if not user_obj.check_password(password):
-                messages.error(request, '邮箱或密码错误，请重试')
+                messages.error(request, '邮箱/用户名或密码错误，请重试')
                 return render(request, 'login.html')
             elif not user_obj.email_verified:
                 # 重新发送验证邮件
@@ -71,11 +83,11 @@ def login_view(request):
                 messages.error(request, '请先验证邮箱后再登录。验证邮件已重新发送，请查收。')
                 return render(request, 'login.html')
         except CustomUser.DoesNotExist:
-            messages.error(request, '邮箱或密码错误，请重试')
+            messages.error(request, '邮箱/用户名或密码错误，请重试')
             return render(request, 'login.html')
 
-        # 使用email进行认证
-        user = authenticate(request, email=email, password=password)
+        # 使用邮箱进行认证（无论用户输入的是邮箱还是用户名）
+        user = authenticate(request, email=user_obj.email, password=password)
 
         if user is not None:
             login(request, user)
@@ -304,8 +316,8 @@ def change_password_view(request):
 
             # 更新密码后需要重新登录，指定认证后端
             from django.contrib.auth import get_backends
-            backend = get_backends()[0]  # 获取第一个认证后端
-            login(request, user, backend=backend)
+            backend_path = get_backends()[0].__module__ + '.' + get_backends()[0].__class__.__name__
+            login(request, user, backend=backend_path)
 
             messages.success(request, '密码修改成功')
             return redirect(reverse('user:profile'))
@@ -354,3 +366,100 @@ def send_email_code_view(request):
             return JsonResponse({'status': 'error', 'message': f'发送失败：{str(e)}'})
 
     return JsonResponse({'status': 'error', 'message': '请求方法错误'})
+
+
+def forgot_password_view(request):
+    """
+    忘记密码页面
+    """
+    if request.method == 'GET':
+        return render(request, 'forgot_password.html')
+    else:
+        email = request.POST.get('email', '').strip()
+        student_number = request.POST.get('student_number', '').strip()
+        
+        if not email or not student_number:
+            messages.error(request, '请填写邮箱和学号')
+            return render(request, 'forgot_password.html')
+        
+        try:
+            user = CustomUser.objects.get(email=email, student_number=student_number)
+            
+            # 生成重置哈希
+            import hashlib
+            import time
+            reset_hash = hashlib.md5((email + student_number + str(int(time.time()))).encode()).hexdigest()
+            
+            # 存储重置哈希到session，设置20分钟过期
+            request.session[f'password_reset_{user.id}'] = reset_hash
+            request.session.set_expiry(1200)  # 20分钟过期
+            
+            # 发送重置邮件
+            subject = '校园博客 - 密码重置'
+            reset_url = f"{settings.SITE_URL}/user/reset_password/{user.id}/{reset_hash}"
+            message = f"""
+            尊敬的 {user.username}，
+            
+            您请求重置密码，请点击以下链接重置密码：
+            
+            {reset_url}
+            
+            该链接20分钟内有效，请及时使用。
+            
+            如果您没有请求重置密码，请忽略此邮件。
+            
+            校园博客团队
+            """
+            
+            send_mail(
+                subject,
+                message,
+                settings.DEFAULT_FROM_EMAIL,
+                [email],
+                fail_silently=False,
+            )
+            
+            messages.success(request, '密码重置链接已发送到您的邮箱，请查收')
+            return redirect(reverse('user:login'))
+            
+        except CustomUser.DoesNotExist:
+            messages.error(request, '邮箱和学号不匹配')
+            return render(request, 'forgot_password.html')
+        except Exception as e:
+            messages.error(request, f'发送失败：{str(e)}')
+            return render(request, 'forgot_password.html')
+
+
+def reset_password_view(request, user_uuid, reset_hash):
+    """
+    密码重置页面
+    """
+    try:
+        user = CustomUser.objects.get(id=user_uuid)
+        
+        # 验证重置哈希
+        stored_hash = request.session.get(f'password_reset_{user.id}')
+        if not stored_hash or stored_hash != reset_hash:
+            messages.error(request, '无效或已过期的重置链接')
+            return redirect(reverse('user:login'))
+            
+        # 重置密码为学号
+        user.set_password(user.student_number)
+        user.save()
+        
+        # 清除重置哈希
+        del request.session[f'password_reset_{user.id}']
+        
+        # 自动登录用户
+        from django.contrib.auth import get_backends
+        backend_path = get_backends()[0].__module__ + '.' + get_backends()[0].__class__.__name__
+        login(request, user, backend=backend_path)
+        
+        return render(request, 'password_reset.html', {'user': user})
+        
+    except CustomUser.DoesNotExist:
+        messages.error(request, '不存在的用户')
+        return redirect(reverse('user:login'))
+    except Exception as e:
+        messages.error(request, f'重置失败：{str(e)}')
+        return redirect(reverse('user:login'))
