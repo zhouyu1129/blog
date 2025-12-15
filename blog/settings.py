@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 import os
+import re
 from dotenv import load_dotenv
 
 # 加载.env文件中的环境变量
@@ -30,7 +31,13 @@ SECRET_KEY = 'django-insecure-3#3n&wrmcw=6(%27bn7kg)b!9j8a8_h_#c*#t#$x$p@mtbpw5t
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
+
+# CSRF信任的源
+CSRF_TRUSTED_ORIGINS = [
+    'http://127.0.0.1',
+    'http://localhost',
+]
 
 
 # Application definition
@@ -145,6 +152,11 @@ AUTHENTICATION_BACKENDS = [
     'django.contrib.auth.backends.ModelBackend',
 ]
 
+# 登录URL
+LOGIN_URL = '/user/login'
+LOGIN_REDIRECT_URL = '/'
+LOGOUT_REDIRECT_URL = '/'
+
 # 邮件配置
 EMAIL_HOST = os.getenv('EMAIL_HOST')
 EMAIL_PORT = int(os.getenv('EMAIL_PORT'))
@@ -155,3 +167,4 @@ DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER)
 
 # 网站配置
 SITE_URL = os.getenv('SITE_URL', 'http://127.0.0.1:8000')
+CSRF_TRUSTED_ORIGINS.append(SITE_URL[: max(len(SITE_URL), SITE_URL.find(':'))]) if SITE_URL not in CSRF_TRUSTED_ORIGINS else None

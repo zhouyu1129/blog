@@ -11,3 +11,5 @@ DEFAULT_FROM_EMAIL=your_email@qq.com
 
 # 网站配置
 SITE_URL=http://127.0.0.1:8000
+
+以及注意修改settings.py中有关数据库的部分

@@ -41,6 +41,7 @@ class CustomUser(AbstractUser):
     student_number = models.CharField(
         max_length=10,
         validators=[validate_student_number],
+        unique=True,
         verbose_name='学号'
     )
 
@@ -73,6 +74,13 @@ class CustomUser(AbstractUser):
     class Meta:
         verbose_name = '用户'
         verbose_name_plural = '用户'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['nickname'], 
+                condition=models.Q(nickname__gt=''), 
+                name='unique_non_empty_nickname'
+            )
+        ]
 
     def __str__(self):
         return self.username

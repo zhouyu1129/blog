@@ -1,0 +1,96 @@
+{% extends 'base.html' %}
+
+{% block title %}用户中心 - 校园博客{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">用户中心</h5>
+            </div>
+            <div class="list-group list-group-flush">
+                <a href="{% url 'user:profile' %}" class="list-group-item list-group-item-action active">
+                    <i class="fas fa-user"></i> 个人信息
+                </a>
+                <a href="{% url 'user:edit_profile' %}" class="list-group-item list-group-item-action">
+                    <i class="fas fa-edit"></i> 编辑资料
+                </a>
+                <a href="{% url 'user:change_email' %}" class="list-group-item list-group-item-action">
+                    <i class="fas fa-envelope"></i> 修改邮箱
+                </a>
+                <a href="{% url 'user:change_password' %}" class="list-group-item list-group-item-action">
+                    <i class="fas fa-lock"></i> 修改密码
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-9">
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">个人信息</h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-sm-3 font-weight-bold">用户名：</div>
+                    <div class="col-sm-9">{{ user.username }}</div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-sm-3 font-weight-bold">邮箱：</div>
+                    <div class="col-sm-9">
+                        {{ user.email }}
+                        {% if user.email_verified %}
+                            <span class="badge badge-success">已验证</span>
+                        {% else %}
+                            <span class="badge badge-warning">未验证</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-sm-3 font-weight-bold">学号：</div>
+                    <div class="col-sm-9">{{ user.student_number }}</div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-sm-3 font-weight-bold">昵称：</div>
+                    <div class="col-sm-9">{{ user.nickname|default:"未设置" }}</div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-sm-3 font-weight-bold">真实姓名：</div>
+                    <div class="col-sm-9">{{ user.real_name|default:"未设置" }}</div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-sm-3 font-weight-bold">手机号：</div>
+                    <div class="col-sm-9">{{ user.mobile|default:"未设置" }}</div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-sm-3 font-weight-bold">性别：</div>
+                    <div class="col-sm-9">
+                        {% if user.gender == 'male' %}男
+                        {% elif user.gender == 'female' %}女
+                        {% elif user.gender == 'other' %}其他
+                        {% else %}未设置
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-sm-3 font-weight-bold">年龄：</div>
+                    <div class="col-sm-9">{{ user.age|default:"未设置" }}</div>
+                </div>
+
+                <div class="row">
+                    <div class="col-sm-3 font-weight-bold">注册时间：</div>
+                    <div class="col-sm-9">{{ user.date_joined|date:"Y-m-d H:i" }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
