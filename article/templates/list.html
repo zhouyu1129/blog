@@ -89,7 +89,7 @@
                 <div class="card mb-4">
                     <div class="card-body">
                         <h2 class="card-title">
-                            <a href="{% url 'article:article_detail' article.pk %}" class="text-decoration-none">{{ article.title }}</a>
+                            <a href="{% url 'article:article_detail' article.index_id %}" class="text-decoration-none">{{ article.title }}</a>
                         </h2>
                         <p class="card-text text-muted">
                             作者：{% if article.author_id.nickname %}{{ article.author_id.nickname }}{% else %}{{ article.author_id.username }}{% endif %} | 
@@ -99,7 +99,7 @@
                         <div class="card-text article-preview">
                             {{ article.content_preview|safe }}
                         </div>
-                        <a href="{% url 'article:article_detail' article.pk %}" class="btn btn-primary">阅读全文</a>
+                        <a href="{% url 'article:article_detail' article.index_id %}" class="btn btn-primary">阅读全文</a>
                     </div>
                 </div>
             {% endfor %}

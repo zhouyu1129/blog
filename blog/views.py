@@ -10,3 +10,7 @@ def index(request):
 @require_http_methods(["GET"])
 def about(request):
     return render(request, 'about.html')
+
+
+def custom_404(request, exception):
+    return render(request, '404.html', status=404)

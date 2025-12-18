@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+
+{% block title %}404 - 页面未找到 - 校园博客{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8 text-center">
+            <div class="error-template">
+                <h1 class="display-1">404</h1>
+                <h2 class="display-4">页面未找到</h2>
+                <div class="error-details mt-4">
+                    <p class="lead">抱歉，您访问的页面不存在或已被移除。</p>
+                    <p>可能是以下原因之一：</p>
+                    <ul class="list-unstyled mt-3">
+                        <li>您输入的网址有误</li>
+                        <li>页面已被删除或移动</li>
+                        <li>链接已过期</li>
+                    </ul>
+                </div>
+                <div class="error-actions mt-4">
+                    <a href="/" class="btn btn-primary btn-lg">
+                        <i class="fas fa-home"></i> 返回首页
+                    </a>
+                    <a href="{% url 'article:article_list' %}" class="btn btn-secondary btn-lg ml-2">
+                        <i class="fas fa-list"></i> 浏览文章
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .error-template {
+        padding: 40px 15px;
+        text-align: center;
+    }
+    .error-actions {
+        margin-top: 15px;
+        margin-bottom: 15px;
+    }
+    .error-actions .btn {
+        margin-right: 10px;
+    }
+    .error-details {
+        margin-top: 20px;
+        margin-bottom: 20px;
+    }
+    .error-details ul {
+        text-align: left;
+        display: inline-block;
+    }
+</style>
+{% endblock %}
