@@ -3,6 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.core.paginator import Paginator
 from django.db.models import Q
+import markdown
 from .models import Article, File, Image
 from .forms import ArticleForm
 
@@ -21,8 +22,21 @@ def article_list(request):
     else:
         articles = Article.objects.all().order_by('-created_at')
     
+    # 为每篇文章生成Markdown摘要
+    md = markdown.Markdown(extensions=[
+        'markdown.extensions.extra',
+        'markdown.extensions.codehilite',
+        'markdown.extensions.sane_lists',
+        'markdown.extensions.nl2br',
+    ])
+    
+    for article in articles:
+        # 获取前200个字符作为摘要
+        content_preview = article.content[:200] + '...' if len(article.content) > 200 else article.content
+        article.content_preview = md.convert(content_preview)
+    
     # 分页处理
-    paginator = Paginator(articles, 10)  # 每页显示6篇文章
+    paginator = Paginator(articles, 10)  # 每页显示10篇文章
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     
@@ -57,6 +71,17 @@ def article_detail(request, pk):
     文章详情视图
     """
     article = get_object_or_404(Article, pk=pk)
+    
+    # 将Markdown内容转换为HTML
+    md = markdown.Markdown(extensions=[
+        'markdown.extensions.extra',
+        'markdown.extensions.codehilite',
+        'markdown.extensions.toc',
+        'markdown.extensions.sane_lists',
+        'markdown.extensions.nl2br',
+    ])
+    article.content_html = md.convert(article.content)
+    article.toc = md.toc
     
     # 获取与文章相关的文件和图片
     files = File.objects.filter(article_id=article)
