@@ -66,6 +66,29 @@
                     </div>
                     
                     <div class="form-group">
+                        <label for="file-upload">上传文件附件</label>
+                        <div class="custom-file mb-3">
+                            <input type="file" class="custom-file-input" id="file-upload" multiple>
+                            <label class="custom-file-label" for="file-upload">选择文件...</label>
+                        </div>
+                        <small class="form-text text-muted">支持上传多个文件，单个文件不超过100MB。上传的文件将在发布文章时与文章关联。</small>
+                        
+                        <!-- 文件上传进度区域 -->
+                        <div id="upload-progress-container" class="mt-3" style="display: none;">
+                            <h6>上传进度</h6>
+                            <div id="upload-progress-list"></div>
+                        </div>
+                        
+                        <!-- 已上传文件列表 -->
+                        <div id="uploaded-files-container" class="mt-3">
+                            <h6>已上传文件</h6>
+                            <div class="list-group" id="uploaded-files-list">
+                                <!-- 临时文件将通过AJAX加载 -->
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
                         <button type="submit" class="btn btn-primary">
                             <i class="fas fa-save mr-1"></i> 发布文章
                         </button>
@@ -413,8 +436,32 @@
                 });
                 
                 // 表单提交前处理
-                const form = document.querySelector('form');
-                form.addEventListener('submit', function(e) {
+                // 使用更精确的选择器来选择文章创建表单
+                const form = document.querySelector('form[method="POST"]');
+                console.log('找到文章创建表单元素:', form);
+                
+                // 检查表单是否有submit事件监听器
+                if (form) {
+                    console.log('表单存在，添加submit事件监听器');
+                    
+                    // 移除可能存在的旧事件监听器
+                    form.removeEventListener('submit', handleFormSubmit);
+                    
+                    // 添加新的事件监听器
+                    form.addEventListener('submit', handleFormSubmit);
+                } else {
+                    console.error('未找到表单元素');
+                }
+                
+                // 表单提交处理函数
+                function handleFormSubmit(e) {
+                    console.log('表单提交事件被触发');
+                    
+                    // 阻止表单默认提交行为
+                    e.preventDefault();
+                    
+                    console.log('=== 表单提交调试信息 ===');
+                    
                     // 获取文章内容，找出所有被引用的图片ID
                     const content = contentField.value;
                     const referencedImgIds = new Set();
@@ -425,6 +472,9 @@
                         referencedImgIds.add(match[1]);
                     }
                     
+                    console.log('文章内容长度:', content.length);
+                    console.log('引用的图片ID:', Array.from(referencedImgIds));
+                    
                     // 创建新的文件列表，只包含被引用的图片
                     const referencedFiles = [];
                     
@@ -434,27 +484,392 @@
                         }
                     });
                     
-                    // 创建新的文件输入框
-                    const newImageInput = document.createElement('input');
-                    newImageInput.type = 'file';
-                    newImageInput.name = 'images';
-                    newImageInput.multiple = true;
-                    newImageInput.style.display = 'none';
+                    console.log('引用的图片文件数量:', referencedFiles.length);
                     
-                    // 使用DataTransfer对象添加文件
-                    const dataTransfer = new DataTransfer();
-                    referencedFiles.forEach(file => {
-                        dataTransfer.items.add(file);
+                    // 检查已上传文件列表
+                    const allFileCheckboxes = document.querySelectorAll('.file-checkbox');
+                    console.log('所有文件复选框数量:', allFileCheckboxes.length);
+                    
+                    allFileCheckboxes.forEach((checkbox, index) => {
+                        console.log(`文件复选框 ${index}:`, {
+                            value: checkbox.value,
+                            checked: checkbox.checked,
+                            parentElement: checkbox.parentElement.textContent.trim()
+                        });
                     });
-                    newImageInput.files = dataTransfer.files;
                     
-                    // 替换原始文件输入框
-                    imageInput.parentNode.replaceChild(newImageInput, imageInput);
+                    // 清除之前添加的文件ID隐藏字段
+                    const existingFileInputs = form.querySelectorAll('input[name="selected_files"]');
+                    console.log('清除旧的文件ID隐藏字段数量:', existingFileInputs.length);
+                    existingFileInputs.forEach(input => input.remove());
                     
-                    console.log(`表单提交：只提交被引用的 ${referencedFiles.length} 个图片`);
+                    // 添加选中的文件ID到表单中
+                    const selectedFileInputs = document.querySelectorAll('.file-checkbox:checked');
+                    console.log('选中的文件复选框数量:', selectedFileInputs.length);
+                    
+                    const selectedFileIds = [];
+                    selectedFileInputs.forEach(checkbox => {
+                        const input = document.createElement('input');
+                        input.type = 'hidden';
+                        input.name = 'selected_files';
+                        input.value = checkbox.value;
+                        form.appendChild(input);
+                        selectedFileIds.push(checkbox.value);
+                        console.log('添加文件ID到表单:', checkbox.value);
+                    });
+                    
+                    console.log('最终选中的文件ID列表:', selectedFileIds);
+                    
+                    // 检查表单数据
+                    const formData = new FormData(form);
+                    const formSelectedFiles = formData.getAll('selected_files');
+                    console.log('表单中的selected_files值:', formSelectedFiles);
+                    
+                    console.log('=== 表单提交调试信息结束 ===');
+                    
+                    // 手动提交表单
+                    form.submit();
+                }
+                
+                // 文件上传功能
+                const fileUploadInput = document.getElementById('file-upload');
+                const uploadProgressContainer = document.getElementById('upload-progress-container');
+                const uploadProgressList = document.getElementById('upload-progress-list');
+                const uploadedFilesList = document.getElementById('uploaded-files-list');
+                
+                // 文件上传状态跟踪
+                const uploadStates = {};
+                // 文件ID与进度条元素的关联
+                const fileProgressItems = {};
+                
+                // 格式化文件大小
+                function formatFileSize(bytes) {
+                    if (bytes === 0) return '0 Bytes';
+                    const k = 1024;
+                    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+                    const i = Math.floor(Math.log(bytes) / Math.log(k));
+                    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+                }
+                
+                // 监听文件选择
+                fileUploadInput.addEventListener('change', function(e) {
+                    const files = Array.from(e.target.files);
+                    
+                    if (files.length === 0) {
+                        document.querySelector('.custom-file-label').textContent = '选择文件...';
+                        return;
+                    }
+                    
+                    // 更新文件名显示
+                    if (files.length === 1) {
+                        document.querySelector('.custom-file-label').textContent = files[0].name;
+                    } else {
+                        document.querySelector('.custom-file-label').textContent = `已选择 ${files.length} 个文件`;
+                    }
+                    
+                    // 显示上传进度容器
+                    uploadProgressContainer.style.display = 'block';
+                    
+                    // 上传每个文件
+                    files.forEach(file => {
+                        uploadFile(file);
+                    });
+                    
+                    // 重置文件输入
+                    fileUploadInput.value = '';
                 });
-            }
-        }
-    });
+                
+                // 上传单个文件
+                function uploadFile(file) {
+                    const fileId = 'file-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+                    
+                    // 创建进度条元素
+                    const progressItem = document.createElement('div');
+                    progressItem.className = 'mb-3';
+                    progressItem.id = fileId;
+                    progressItem.innerHTML = `
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span class="file-name">${file.name}</span>
+                            <span class="file-size text-muted">${formatFileSize(file.size)}</span>
+                        </div>
+                        <div class="progress">
+                            <div class="progress-bar" role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
+                        </div>
+                        <div class="d-flex justify-content-between mt-1">
+                            <span class="upload-status text-muted">准备上传...</span>
+                            <button type="button" class="btn btn-sm btn-outline-danger cancel-upload-btn">取消</button>
+                        </div>
+                    `;
+                    
+                    uploadProgressList.appendChild(progressItem);
+                    
+                    // 获取进度条元素
+                    const progressBar = progressItem.querySelector('.progress-bar');
+                    const statusText = progressItem.querySelector('.upload-status');
+                    const cancelBtn = progressItem.querySelector('.cancel-upload-btn');
+                    
+                    // 创建XMLHttpRequest对象
+                    const xhr = new XMLHttpRequest();
+                    uploadStates[fileId] = { xhr, cancelled: false };
+                    
+                    // 监听上传进度
+                    xhr.upload.addEventListener('progress', function(e) {
+                        if (e.lengthComputable) {
+                            const percentComplete = Math.round((e.loaded / e.total) * 100);
+                            progressBar.style.width = percentComplete + '%';
+                            progressBar.setAttribute('aria-valuenow', percentComplete);
+                            progressBar.textContent = percentComplete + '%';
+                            statusText.textContent = `上传中... ${percentComplete}%`;
+                        }
+                    });
+                    
+                    // 监听上传完成
+                    xhr.addEventListener('load', function() {
+                        if (xhr.status >= 200 && xhr.status < 300) {
+                            const response = JSON.parse(xhr.responseText);
+                            if (response.success) {
+                                console.log('文件上传成功:', response);
+                                progressBar.classList.remove('progress-bar-animated');
+                                progressBar.classList.add('bg-success');
+                                statusText.textContent = '上传成功';
+                                cancelBtn.textContent = '删除';
+                                cancelBtn.classList.remove('cancel-upload-btn');
+                                cancelBtn.classList.add('delete-file-btn');
+                                cancelBtn.setAttribute('data-file-id', response.file_id);
+                                
+                                // 记录文件ID与进度条元素的关联
+                                fileProgressItems[response.file_id] = progressItem;
+                                
+                                // 添加到已上传文件列表
+                                addUploadedFileToList(response);
+                                
+                                // 验证文件是否正确添加到列表
+                                setTimeout(() => {
+                                    const addedCheckbox = document.querySelector(`.file-checkbox[value="${response.file_id}"]`);
+                                    if (addedCheckbox) {
+                                        console.log('文件已正确添加到列表:', response.file_id);
+                                    } else {
+                                        console.error('文件未添加到列表:', response.file_id);
+                                    }
+                                }, 100);
+                            } else {
+                                progressBar.classList.add('bg-danger');
+                                statusText.textContent = '上传失败: ' + response.error;
+                                cancelBtn.textContent = '重试';
+                                cancelBtn.classList.remove('cancel-upload-btn');
+                                cancelBtn.classList.add('retry-upload-btn');
+                            }
+                        } else {
+                            progressBar.classList.add('bg-danger');
+                            statusText.textContent = '上传失败: 服务器错误';
+                            cancelBtn.textContent = '重试';
+                            cancelBtn.classList.remove('cancel-upload-btn');
+                            cancelBtn.classList.add('retry-upload-btn');
+                        }
+                    });
+                    
+                    // 监听上传错误
+                    xhr.addEventListener('error', function() {
+                        progressBar.classList.add('bg-danger');
+                        statusText.textContent = '上传失败: 网络错误';
+                        cancelBtn.textContent = '重试';
+                        cancelBtn.classList.remove('cancel-upload-btn');
+                        cancelBtn.classList.add('retry-upload-btn');
+                    });
+                    
+                    // 取消上传按钮事件
+                    cancelBtn.addEventListener('click', function() {
+                        if (cancelBtn.classList.contains('cancel-upload-btn')) {
+                            // 取消上传
+                            uploadStates[fileId].cancelled = true;
+                            xhr.abort();
+                            uploadProgressList.removeChild(progressItem);
+                            delete uploadStates[fileId];
+                        } else if (cancelBtn.classList.contains('retry-upload-btn')) {
+                            // 重试上传
+                            progressBar.classList.remove('bg-danger');
+                            progressBar.classList.add('progress-bar-animated');
+                            progressBar.style.width = '0%';
+                            progressBar.setAttribute('aria-valuenow', 0);
+                            progressBar.textContent = '0%';
+                            statusText.textContent = '准备上传...';
+                            cancelBtn.textContent = '取消';
+                            cancelBtn.classList.remove('retry-upload-btn');
+                            cancelBtn.classList.add('cancel-upload-btn');
+                            uploadFile(file);
+                        } else if (cancelBtn.classList.contains('delete-file-btn')) {
+                            // 删除已上传的文件
+                            const file_id = cancelBtn.getAttribute('data-file-id');
+                            // 查找对应的已上传文件项
+                            const fileItem = document.getElementById('file-item-' + file_id);
+                            deleteUploadedFile(file_id, fileItem);
+                        }
+                    });
+                    
+                    // 准备表单数据
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+                    
+                    // 发送请求
+                    xhr.open('POST', '{% url "article:upload_file" %}', true);
+                    xhr.send(formData);
+                }
+                
+                // 添加已上传文件到列表
+                function addUploadedFileToList(fileData) {
+                    console.log('添加文件到列表:', fileData);
+                    console.log('fileData.file_id:', fileData.file_id);
+                    console.log('fileData.id:', fileData.id);
+                    console.log('fileData对象的所有键:', Object.keys(fileData));
+                    
+                    // 确定使用哪个字段作为文件ID
+                    const fileId = fileData.file_id || fileData.id;
+                    console.log('最终使用的文件ID:', fileId);
+                    
+                    const fileItem = document.createElement('div');
+                    fileItem.className = 'list-group-item d-flex justify-content-between align-items-center';
+                    fileItem.id = 'file-item-' + fileId;
+                    fileItem.innerHTML = `
+                        <div class="d-flex align-items-center">
+                            <input type="checkbox" class="form-check-input file-checkbox mr-2" value="${fileId}" checked>
+                            <div>
+                                <div class="font-weight-medium">${fileData.filename}</div>
+                                <small class="text-muted">${formatFileSize(fileData.file_size)}</small>
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-danger delete-file-btn" data-file-id="${fileId}">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    `;
+                    
+                    uploadedFilesList.appendChild(fileItem);
+                    
+                    // 验证文件是否正确添加
+                    const addedCheckbox = fileItem.querySelector('.file-checkbox');
+                    console.log('文件复选框已添加:', {
+                        value: addedCheckbox.value,
+                        checked: addedCheckbox.checked,
+                        parentElement: uploadedFilesList
+                    });
+                    
+                    // 添加删除按钮事件
+                    const deleteBtn = fileItem.querySelector('.delete-file-btn');
+                    deleteBtn.addEventListener('click', function() {
+                        const fileId = fileData.file_id || fileData.id;
+                        deleteUploadedFile(fileId, fileItem);
+                    });
+                }
+                
+                // 删除已上传的文件
+                function deleteUploadedFile(fileId, fileItem) {
+                    fetch(`/article/delete-temp-file/${fileId}/`, {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                        },
+                        body: '_method=DELETE'
+                    })
+                    .then(response => {
+                        // 检查响应状态
+                        if (!response.ok) {
+                            throw new Error(`HTTP错误! 状态: ${response.status}`);
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        if (data.success) {
+                            // 安全地从已上传文件列表中删除
+                            if (fileItem && fileItem.parentNode === uploadedFilesList) {
+                                uploadedFilesList.removeChild(fileItem);
+                            }
+                            
+                            // 从上传进度列表中删除
+                            const progressItem = fileProgressItems[fileId];
+                            if (progressItem && progressItem.parentNode === uploadProgressList) {
+                                uploadProgressList.removeChild(progressItem);
+                                delete fileProgressItems[fileId];
+                            }
+                        } else {
+                            alert('删除文件失败: ' + data.error);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('删除文件错误:', error);
+                        alert('删除文件时发生网络错误: ' + error.message);
+                    });
+                }
+                
+                // 加载已有的临时文件
+                function loadExistingFiles() {
+                    console.log('开始加载已有文件...');
+                    fetch('{% url "article:get_temp_files" %}', {
+                        method: 'GET',
+                        headers: {
+                            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                        }
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log('获取文件列表响应:', data);
+                        if (data.success) {
+                            console.log('加载到的文件数量:', data.files.length);
+                            data.files.forEach((file, index) => {
+                                console.log(`处理文件 ${index}:`, file);
+                                addUploadedFileToList(file);
+                            });
+                            
+                            // 验证文件是否正确添加到列表
+                            setTimeout(() => {
+                                const allCheckboxes = document.querySelectorAll('.file-checkbox');
+                                console.log('页面加载后，文件复选框总数:', allCheckboxes.length);
+                                allCheckboxes.forEach((checkbox, index) => {
+                                    console.log(`文件复选框 ${index}:`, {
+                                        value: checkbox.value,
+                                        checked: checkbox.checked
+                                    });
+                                });
+                            }, 500);
+                        } else {
+                            console.error('获取文件列表失败:', data.error);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('加载文件列表错误:', error);
+                    });
+                }
+                
+                // 页面加载时获取已有的临时文件
+                loadExistingFiles();
+                
+                // 添加发布按钮点击事件作为备用方案
+                // 使用更精确的选择器来选择发布按钮
+                const submitBtn = document.querySelector('button[type="submit"]:has(i.fa-save)');
+                console.log('找到发布按钮:', submitBtn);
+                
+                if (submitBtn) {
+                    submitBtn.addEventListener('click', function(e) {
+                        console.log('发布按钮被点击');
+                        
+                        // 延迟执行，确保表单提交事件有时间处理
+                        setTimeout(() => {
+                            // 检查是否有选中的文件
+                            const selectedCheckboxes = document.querySelectorAll('.file-checkbox:checked');
+                            console.log('发布按钮点击时选中的文件数量:', selectedCheckboxes.length);
+                            
+                            if (selectedCheckboxes.length > 0) {
+                                const fileIds = [];
+                                selectedCheckboxes.forEach(checkbox => {
+                                    fileIds.push(checkbox.value);
+                                });
+                                console.log('发布按钮点击时选中的文件ID:', fileIds);
+                            }
+                        }, 100);
+                    });
+                }
+            } // 闭合 if (imageInput && imagePreviewRow) 块
+        } // 闭合 if (contentField && previewDiv) 块
+    }); // 闭合 document.addEventListener 块
 </script>
 {% endblock %}

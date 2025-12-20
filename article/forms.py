@@ -9,6 +9,8 @@ class MultipleFileInput(forms.ClearableFileInput):
 class MultipleFileField(forms.FileField):
     def __init__(self, *args, **kwargs):
         kwargs.setdefault("widget", MultipleFileInput(attrs={'class': 'form-control-file'}))
+        # 设置最大文件大小为100MB (100 * 1024 * 1024 bytes)
+        self.max_size = kwargs.pop('max_size', 100 * 1024 * 1024)
         super().__init__(*args, **kwargs)
 
     def to_python(self, data):
@@ -27,9 +29,9 @@ class MultipleFileField(forms.FileField):
         # 验证每个文件
         for file in value:
             if file:
-                # 使用父类的验证方法，但不抛出 required 错误
+                # 检查文件大小
                 if file.size > self.max_size:
-                    raise forms.ValidationError(self.error_messages['invalid_file'])
+                    raise forms.ValidationError(f'文件 "{file.name}" 大小超过限制 (最大100MB)')
 
                 # 检查文件类型
                 if hasattr(self, 'allowed_types') and file.content_type not in self.allowed_types:
@@ -37,8 +39,12 @@ class MultipleFileField(forms.FileField):
 
 
 class ArticleForm(forms.ModelForm):
-    # 图片上传将在视图中直接处理，不在表单中定义
-
+    # 文件上传字段
+    files = MultipleFileField(
+        required=False,
+        help_text="支持上传多个文件，单个文件不超过100MB"
+    )
+    
     class Meta:
         model = Article
         fields = ['title', 'content']

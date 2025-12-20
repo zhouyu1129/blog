@@ -74,6 +74,10 @@ class Article(models.Model):
         related_name='articles'  # 这样就可以用 Image.articles.all() 来反向查询
     )
 
+    class Meta:
+        verbose_name = '文章'
+        verbose_name_plural = verbose_name
+
 
 class File(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -82,11 +86,28 @@ class File(models.Model):
     author_id = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        verbose_name = '文件附件'
+        verbose_name_plural = verbose_name
+
 
 class FileQuote(models.Model):
     article = models.ForeignKey(Article, on_delete=models.CASCADE)
     file = models.ForeignKey(File, on_delete=models.CASCADE)
     pk = models.CompositePrimaryKey('article', 'file')
+
+
+class TemporaryFile(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    file = models.FileField(upload_to='temp_files/')
+    filename = models.CharField(max_length=255)
+    file_size = models.IntegerField()  # 文件大小（字节）
+    author_id = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "临时文件"
+        verbose_name_plural = verbose_name
 
 
 class Image(models.Model):
@@ -95,6 +116,10 @@ class Image(models.Model):
     content = models.ImageField(upload_to='images/')
     author_id = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = '图片'
+        verbose_name_plural = verbose_name
 
 
 class ImageQuote(models.Model):
@@ -106,3 +131,4 @@ class ImageQuote(models.Model):
 admin.site.register(Article)
 admin.site.register(File)
 admin.site.register(Image)
+admin.site.register(TemporaryFile)

@@ -1,16 +1,19 @@
 import os
 import re
+import json
 
 import markdown
+from django.http.response import HttpResponse
 
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db.models import Q, Max
+from django.http import JsonResponse
 from django.shortcuts import render, redirect
 from .forms import ArticleForm
-from .models import Article, Image, ImageQuote
+from .models import Article, Image, ImageQuote, File, FileQuote, TemporaryFile
 
 
 def article_list(request):
@@ -77,10 +80,129 @@ def article_list(request):
 
 
 @login_required
+def upload_file(request):
+    """
+    文件上传视图（AJAX）
+    """
+    if request.method == 'POST' and request.FILES.get('file'):
+        uploaded_file = request.FILES['file']
+        
+        # 检查文件大小（100MB限制）
+        if uploaded_file.size > 100 * 1024 * 1024:
+            return JsonResponse({
+                'success': False,
+                'error': '文件大小超过100MB限制'
+            }, status=400)
+        
+        try:
+            # 创建临时文件记录
+            temp_file = TemporaryFile.objects.create(
+                file=uploaded_file,
+                filename=uploaded_file.name,
+                file_size=uploaded_file.size,
+                author_id=request.user
+            )
+            
+            # 返回文件信息
+            return JsonResponse({
+                'success': True,
+                'file_id': str(temp_file.id),
+                'filename': temp_file.filename,
+                'file_size': temp_file.file_size,
+                'file_url': temp_file.file.url
+            })
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': f'文件上传失败: {str(e)}'
+            }, status=500)
+    
+    return JsonResponse({
+        'success': False,
+        'error': '无效的请求'
+    }, status=400)
+
+
+@login_required
+def delete_temp_file(request, file_id):
+    """
+    删除临时文件视图（AJAX）
+    """
+    # 检查是否是DELETE请求（直接或通过POST模拟）
+    if request.method == 'DELETE' or (request.method == 'POST' and request.POST.get('_method') == 'DELETE'):
+        try:
+            temp_file = TemporaryFile.objects.get(id=file_id, author_id=request.user)
+            
+            # 删除文件
+            if temp_file.file and temp_file.file.name:
+                file_path = os.path.join(settings.MEDIA_ROOT, temp_file.file.name)
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+            
+            # 删除数据库记录
+            temp_file.delete()
+            
+            return JsonResponse({'success': True})
+        except TemporaryFile.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'error': '文件不存在或无权限删除'
+            }, status=404)
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': f'删除文件失败: {str(e)}'
+            }, status=500)
+    
+    return JsonResponse({
+        'success': False,
+        'error': '无效的请求'
+    }, status=400)
+
+
+@login_required
+def get_temp_files(request):
+    """
+    获取用户的临时文件列表（AJAX）
+    """
+    if request.method == 'GET':
+        try:
+            temp_files = TemporaryFile.objects.filter(author_id=request.user)
+            
+            files_data = []
+            for temp_file in temp_files:
+                files_data.append({
+                    'file_id': str(temp_file.id),
+                    'filename': temp_file.filename,
+                    'file_size': temp_file.file_size,
+                    'file_url': temp_file.file.url,
+                    'created_at': temp_file.created_at.isoformat()
+                })
+            
+            return JsonResponse({
+                'success': True,
+                'files': files_data
+            })
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': f'获取文件列表失败: {str(e)}'
+            }, status=500)
+    
+    return JsonResponse({
+        'success': False,
+        'error': '无效的请求'
+    }, status=400)
+
+
+@login_required
 def article_create(request):
     """
     文章创建视图
     """
+    # 获取用户的临时文件
+    temp_files = TemporaryFile.objects.filter(author_id=request.user)
+    
     if request.method == 'POST':
         form = ArticleForm(request.POST)
 
@@ -189,6 +311,67 @@ def article_create(request):
 
             # 更新文章内容
             article.content = content
+            
+            # 处理临时文件，将其转换为正式文件并与文章关联
+            selected_file_ids = request.POST.getlist('selected_files')
+            print(f"选中的文件ID: {selected_file_ids}")
+            
+            for file_id in selected_file_ids:
+                try:
+                    temp_file = TemporaryFile.objects.get(id=file_id, author_id=request.user)
+                    print(f"处理临时文件: {temp_file.filename}, ID: {temp_file.id}")
+                    
+                    # 确保文件目录存在
+                    files_dir = os.path.join(settings.MEDIA_ROOT, 'files')
+                    os.makedirs(files_dir, exist_ok=True)
+                    
+                    # 确保文件目录存在
+                    files_dir = os.path.join(settings.MEDIA_ROOT, 'files')
+                    os.makedirs(files_dir, exist_ok=True)
+                    
+                    # 获取临时文件路径
+                    temp_file_path = temp_file.file.path
+                    
+                    # 先创建正式文件记录（使用临时文件的路径，稍后会移动）
+                    file = File.objects.create(
+                        title=temp_file.filename,
+                        content=temp_file.file.name,  # 暂时使用临时文件的路径
+                        author_id=request.user
+                    )
+                    
+                    # 创建新的文件名，使用File对象的ID确保唯一性
+                    file_extension = os.path.splitext(temp_file.filename)[1]
+                    new_filename = f"{file.id}{file_extension}"
+                    new_file_path = os.path.join(files_dir, new_filename)
+                    
+                    # 移动文件到正式目录
+                    import shutil
+                    shutil.move(temp_file_path, new_file_path)
+                    
+                    # 更新File对象的content字段，指向新的文件路径
+                    file.content = f"files/{new_filename}"
+                    file.save()
+                    
+                    print(f"已创建正式文件: {file.title}, ID: {file.id}, 路径: {file.content.path}")
+                    
+                    # 创建文件与文章的关联
+                    FileQuote.objects.create(
+                        article=article,
+                        file=file
+                    )
+                    
+                    print(f"已创建文件与文章的关联")
+                    
+                    # 删除临时文件记录（但保留实际文件，因为File对象已经引用了它）
+                    temp_file.delete()
+                    print(f"已删除临时文件记录")
+                except TemporaryFile.DoesNotExist:
+                    print(f"临时文件不存在: {file_id}")
+                    continue
+                except Exception as e:
+                    print(f"处理临时文件时出错: {file_id}, 错误: {str(e)}")
+                    continue
+            
             article.save()
 
             messages.success(request, '文章创建成功！')
@@ -200,7 +383,7 @@ def article_create(request):
     else:
         form = ArticleForm()
 
-    return render(request, 'create.html', {'form': form})
+    return render(request, 'create.html', {'form': form, 'temp_files': temp_files})
 
 
 def article_detail(request, pk):
