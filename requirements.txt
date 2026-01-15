@@ -1,0 +1,8 @@
+Django>=5.0
+psycopg2-binary>=2.9.0
+python-decouple>=3.8
+Pillow>=10.0.0
+django-crispy-forms>=2.0
+crispy-bootstrap5>=0.7
+markdown>=3.5.0
+Pygments>=2.16.0

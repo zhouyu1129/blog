@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+
+{% block title %}登录 - 校园博客{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h3 class="mb-0 text-center">用户登录</h3>
+            </div>
+            <div class="card-body">
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                                <span aria-hidden="true">&times;</span>
+                            </button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+                
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="email" class="form-label">邮箱/用户名</label>
+                        <input type="text" class="form-control" id="email" name="email" required>
+                        <div class="form-text">请输入您的邮箱或用户名</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="password" class="form-label">密码</label>
+                        <input type="password" class="form-control" id="password" name="password" required>
+                    </div>
+                    
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="remember">
+                        <label class="form-check-label" for="remember">记住我</label>
+                    </div>
+                    
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-success">登录</button>
+                    </div>
+                </form>
+                
+                <div class="text-center mt-3">
+                    <p>还没有账号？<a href="{% url 'user:register' %}">立即注册</a></p>
+                    <p><a href="{% url 'user:forgot_password' %}">忘记密码？</a></p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

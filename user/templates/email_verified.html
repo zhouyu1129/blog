@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+
+{% block title %}邮箱验证成功 - 校园博客{% endblock %}
+
+{% block head %}
+<meta http-equiv="refresh" content="3;url={{ target_url }}">
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h3 class="mb-0 text-center">邮箱验证成功</h3>
+            </div>
+            <div class="card-body text-center">
+                <div class="mb-4">
+                    <i class="fa fa-check-circle fa-5x text-success mb-3"></i>
+                    <h4>恭喜，{{ user.username }}！</h4>
+                    <p class="lead">您的邮箱已成功验证，现在可以正常使用校园博客了。</p>
+                    <p class="lead">浏览器将在3秒后自动重定向，如果浏览器没有重定向，您可以点击下面的按钮</p>
+                </div>
+                
+                <div class="mb-3">
+                    <a href="{{ target_url }}" class="btn btn-primary btn-lg">立即登录</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

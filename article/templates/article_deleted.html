@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+
+{% block title %}文章已删除 - 校园博客{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8 text-center">
+            <div class="error-template">
+                <h1 class="display-1">410</h1>
+                <h2 class="display-4">文章已删除</h2>
+                <div class="error-details mt-4">
+                    <p class="lead">抱歉，您访问的文章已被删除。</p>
+                    <p>该文章可能已被作者或管理员删除。</p>
+                </div>
+                <div class="error-actions mt-4">
+                    <a href="/" class="btn btn-primary btn-lg">
+                        <i class="fas fa-home"></i> 返回首页
+                    </a>
+                    <a href="{% url 'article:article_list' %}" class="btn btn-secondary btn-lg ml-2">
+                        <i class="fas fa-list"></i> 浏览文章
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .error-template {
+        padding: 40px 15px;
+        text-align: center;
+    }
+    .error-actions {
+        margin-top: 15px;
+        margin-bottom: 15px;
+    }
+    .error-actions .btn {
+        margin-right: 10px;
+    }
+    .error-details {
+        margin-top: 20px;
+        margin-bottom: 20px;
+    }
+</style>
+{% endblock %}

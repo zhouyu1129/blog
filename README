@@ -1,0 +1,16 @@
+在使用前，需要在.env中填写邮件验证的发送邮箱信息
+# file:./.env
+
+# 邮件配置
+EMAIL_HOST=smtp.qq.com
+EMAIL_PORT=587
+EMAIL_HOST_USER=your_email@qq.com
+EMAIL_HOST_PASSWORD=your_email_password
+EMAIL_USE_TLS=True
+DEFAULT_FROM_EMAIL=your_email@qq.com
+
+# 网站配置
+SITE_URL=http://127.0.0.1:8000
+
+注意修改settings.py中有关数据库的部分
+默认使用postgre sql作为数据库，使用账号blogserver密码SERVER连接到数据库blog

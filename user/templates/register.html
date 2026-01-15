@@ -1,0 +1,143 @@
+{% extends 'base.html' %}
+
+{% block title %}注册 - 校园博客{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h3 class="mb-0 text-center">用户注册</h3>
+            </div>
+            <div class="card-body">
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                                <span aria-hidden="true">&times;</span>
+                            </button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+                
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="username" class="form-label">用户名 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="username" name="username" required>
+                        <div class="form-text" id="username-feedback">用户名只能包含ASCII字符且不能包含空格和@符号</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="email" class="form-label">邮箱 <span class="text-danger">*</span></label>
+                        <input type="email" class="form-control" id="email" name="email" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="student_number" class="form-label">学号 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="student_number" name="student_number" required>
+                        <div class="form-text" id="student-number-feedback">学号必须为10位数字</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="password" class="form-label">密码 <span class="text-danger">*</span></label>
+                        <input type="password" class="form-control" id="password" name="password" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="confirm_password" class="form-label">确认密码 <span class="text-danger">*</span></label>
+                        <input type="password" class="form-control" id="confirm_password" name="confirm_password" required>
+                    </div>
+                    
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary">注册</button>
+                    </div>
+                </form>
+                
+                <div class="text-center mt-3">
+                    <p>已有账号？<a href="{% url 'user:login' %}">立即登录</a></p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // 学号验证
+    document.getElementById('student_number').addEventListener('input', function() {
+        const studentNumber = this.value;
+        const feedback = document.getElementById('student-number-feedback');
+        
+        if (!/^\d{10}$/.test(studentNumber)) {
+            this.setCustomValidity('学号必须是10位数字');
+            feedback.textContent = '学号必须是10位数字';
+            feedback.classList.add('text-danger');
+        } else {
+            this.setCustomValidity('');
+            feedback.textContent = '学号格式正确';
+            feedback.classList.remove('text-danger');
+            feedback.classList.add('text-success');
+        }
+    });
+    
+    // 用户名验证
+    document.getElementById('username').addEventListener('input', function() {
+        const username = this.value;
+        const feedback = document.getElementById('username-feedback');
+        
+        if (!/^[\x00-\x7F]+$/.test(username)) {
+            this.setCustomValidity('用户名只能包含ASCII字符');
+            feedback.textContent = '用户名只能包含ASCII字符';
+            feedback.classList.add('text-danger');
+        } else if (username.includes(' ')) {
+            this.setCustomValidity('用户名不能包含空格');
+            feedback.textContent = '用户名不能包含空格';
+            feedback.classList.add('text-danger');
+        } else {
+            this.setCustomValidity('');
+            feedback.textContent = '用户名格式正确';
+            feedback.classList.remove('text-danger');
+            feedback.classList.add('text-success');
+        }
+    });
+    
+    // 密码确认验证
+    document.getElementById('confirm_password').addEventListener('input', function() {
+        const password = document.getElementById('password').value;
+        const confirmPassword = this.value;
+        
+        if (password !== confirmPassword) {
+            this.setCustomValidity('密码不匹配');
+        } else {
+            this.setCustomValidity('');
+        }
+    });
+    
+    // 表单提交验证
+    document.querySelector('form').addEventListener('submit', function(event) {
+        const studentNumber = document.getElementById('student_number').value;
+        const username = document.getElementById('username').value;
+        
+        if (!/^\d{10}$/.test(studentNumber)) {
+            event.preventDefault();
+            alert('学号必须是10位数字');
+            return false;
+        }
+        
+        if (!/^[\x00-\x7F]+$/.test(username)) {
+            event.preventDefault();
+            alert('用户名只能包含ASCII字符');
+            return false;
+        }
+        
+        if (username.includes(' ')) {
+            event.preventDefault();
+            alert('用户名不能包含空格');
+            return false;
+        }
+    });
+</script>
+{% endblock %}

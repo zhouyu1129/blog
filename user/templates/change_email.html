@@ -1,0 +1,175 @@
+{% extends 'base.html' %}
+
+{% block title %}修改邮箱 - 校园博客{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">用户中心</h5>
+            </div>
+            <div class="list-group list-group-flush">
+                <a href="{% url 'user:profile' %}" class="list-group-item list-group-item-action">
+                    <i class="fas fa-user"></i> 个人信息
+                </a>
+                <a href="{% url 'user:edit_profile' %}" class="list-group-item list-group-item-action">
+                    <i class="fas fa-edit"></i> 编辑资料
+                </a>
+                <a href="{% url 'user:change_email' %}" class="list-group-item list-group-item-action active">
+                    <i class="fas fa-envelope"></i> 修改邮箱
+                </a>
+                <a href="{% url 'user:change_password' %}" class="list-group-item list-group-item-action">
+                    <i class="fas fa-lock"></i> 修改密码
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-9">
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">修改邮箱</h5>
+            </div>
+            <div class="card-body">
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                                <span aria-hidden="true">&times;</span>
+                            </button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+                
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i> 修改邮箱需要验证当前邮箱，我们将向您的当前邮箱 <strong>{{ user.email }}</strong> 发送验证码。
+                </div>
+                
+                <form method="post" id="email-form">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="new_email" class="form-label">新邮箱地址</label>
+                        <input type="email" class="form-control" id="new_email" name="new_email" required>
+                        <div class="form-text">请输入您要更换的新邮箱地址</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="verification_code" class="form-label">验证码</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="verification_code" name="verification_code" 
+                                   placeholder="请输入4位验证码" maxlength="4" required>
+                            <div class="input-group-append">
+                                <button type="button" class="btn btn-outline-primary" id="send-code-btn">发送验证码</button>
+                            </div>
+                        </div>
+                        <div class="form-text">验证码5分钟内有效</div>
+                    </div>
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{% url 'user:profile' %}" class="btn btn-secondary me-md-2">取消</a>
+                        <button type="submit" class="btn btn-info">确认修改</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let countdown = 0;
+    
+    // 发送验证码
+    document.getElementById('send-code-btn').addEventListener('click', function() {
+        const newEmail = document.getElementById('new_email').value;
+        
+        if (!newEmail) {
+            alert('请先输入新邮箱地址');
+            return;
+        }
+        
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)) {
+            alert('请输入有效的邮箱地址');
+            return;
+        }
+        
+        // 禁用按钮并开始倒计时
+        const btn = this;
+        btn.disabled = true;
+        countdown = 60;
+        updateCountdown();
+        
+        // 发送AJAX请求
+        fetch("{% url 'user:send_email_code' %}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: ''
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                alert('验证码已发送，请查收邮件');
+            } else {
+                alert(data.message || '发送失败，请重试');
+                btn.disabled = false;
+                countdown = 0;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('发送失败，请重试');
+            btn.disabled = false;
+            countdown = 0;
+        });
+    });
+    
+    // 更新倒计时
+    function updateCountdown() {
+        const btn = document.getElementById('send-code-btn');
+        if (countdown > 0) {
+            btn.textContent = `${countdown}秒后重试`;
+            countdown--;
+            setTimeout(updateCountdown, 1000);
+        } else {
+            btn.textContent = '发送验证码';
+            btn.disabled = false;
+        }
+    }
+    
+    // 表单提交验证
+    document.getElementById('email-form').addEventListener('submit', function(event) {
+        const newEmail = document.getElementById('new_email').value;
+        const verificationCode = document.getElementById('verification_code').value;
+        
+        if (!newEmail) {
+            event.preventDefault();
+            alert('请输入新邮箱地址');
+            return false;
+        }
+        
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)) {
+            event.preventDefault();
+            alert('请输入有效的邮箱地址');
+            return false;
+        }
+        
+        if (!verificationCode) {
+            event.preventDefault();
+            alert('请输入验证码');
+            return false;
+        }
+        
+        if (!/^\d{4}$/.test(verificationCode)) {
+            event.preventDefault();
+            alert('验证码必须是4位数字');
+            return false;
+        }
+    });
+</script>
+{% endblock %}
