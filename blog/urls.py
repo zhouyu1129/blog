@@ -29,6 +29,7 @@ urlpatterns = [
     path('about', about, name='about'),
     path('user/', include('user.urls')),
     path('article/', include('article.urls')),
+    path('comment/', include('comment.urls')),
 ]
 
 # 在开发环境中提供媒体文件服务

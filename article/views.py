@@ -1,9 +1,9 @@
 import os
 import re
+import shutil
 import json
 
 import markdown
-from django.http.response import HttpResponse
 
 from django.conf import settings
 from django.contrib import messages
@@ -223,17 +223,33 @@ def article_create(request):
             image_map = {}  # 存储图片ID和对应的Image对象
             temp_images = []  # 存储所有创建的图片对象，用于后续清理
 
+            # 获取前端传递的图片ID映射
+            image_id_mapping = []
+            if 'image_id_mapping' in request.POST:
+                try:
+                    image_id_mapping = json.loads(request.POST.get('image_id_mapping', '[]'))
+                    print(f"前端传递的图片ID映射: {image_id_mapping}")
+                except json.JSONDecodeError:
+                    print("解析图片ID映射失败")
+
+            # 创建前端ID到后端连续ID的映射
+            frontend_to_backend_id = {}
+            for idx, frontend_id in enumerate(image_id_mapping):
+                backend_id = str(idx + 1)
+                frontend_to_backend_id[str(frontend_id)] = backend_id
+                print(f"ID映射: 前端 {frontend_id} -> 后端 {backend_id}")
+
             # 确保媒体目录存在
             media_root = settings.MEDIA_ROOT
             images_dir = os.path.join(media_root, 'images')
             os.makedirs(images_dir, exist_ok=True)
 
-            # 先创建所有上传的图片对象，但先不创建ImageQuote关系
+            # 先创建所有上传的图片对象，使用连续的后端ID
             for idx, img_file in enumerate(uploaded_images):
-                # 使用简单的顺序ID（从1开始）
+                # 使用连续的后端ID（从1开始）
                 img_id = str(idx + 1)
 
-                print(f"处理第 {idx + 1} 个图片文件: {img_file.name}, 分配ID: {img_id}")
+                print(f"处理第 {idx + 1} 个图片文件: {img_file.name}, 分配后端ID: {img_id}")
 
                 # 创建Image对象并保存
                 image = Image.objects.create(
@@ -257,9 +273,17 @@ def article_create(request):
 
             print(f"文章中引用的图片ID: {referenced_img_ids}")
 
+            # 将前端ID映射到后端连续ID
+            backend_referenced_img_ids = set()
+            for frontend_id in referenced_img_ids:
+                if frontend_id in frontend_to_backend_id:
+                    backend_id = frontend_to_backend_id[frontend_id]
+                    backend_referenced_img_ids.add(backend_id)
+                    print(f"引用ID映射: 前端 {frontend_id} -> 后端 {backend_id}")
+
             # 只为被引用的图片创建ImageQuote关系
             for img_id, image in temp_images:
-                if img_id in referenced_img_ids:
+                if img_id in backend_referenced_img_ids:
                     # 创建ImageQuote关系
                     ImageQuote.objects.create(
                         article=article,
@@ -290,16 +314,18 @@ def article_create(request):
             content = content.replace(r'\[', '[ESCAPED_LEFT_BRACKET]')
             content = content.replace(r'\]', '[ESCAPED_RIGHT_BRACKET]')
 
-            # 查找并替换图片引用
+            # 查找并替换图片引用，将前端ID替换为后端连续ID
             def replace_img_reference(match):
-                img_id = match.group(1)
-                if img_id in image_map:
-                    image = image_map[img_id]
-                    # 使用Django的url属性获取正确的URL
-                    image_url = image.content.url
-                    print(f"Django生成的图片URL: {image_url}")
+                frontend_id = match.group(1)
+                if frontend_id in frontend_to_backend_id:
+                    backend_id = frontend_to_backend_id[frontend_id]
+                    if backend_id in image_map:
+                        image = image_map[backend_id]
+                        # 使用Django的url属性获取正确的URL
+                        image_url = image.content.url
+                        print(f"Django生成的图片URL: {image_url}")
 
-                    return f'![{image.title}]({image_url})'
+                        return f'![{image.title}]({image_url})'
                 return match.group(0)  # 如果找不到对应图片，保持原样
 
             content = re.sub(r'\[\[img_id=(\d+)]]', replace_img_reference, content)
@@ -345,7 +371,6 @@ def article_create(request):
                     new_file_path = os.path.join(files_dir, new_filename)
                     
                     # 移动文件到正式目录
-                    import shutil
                     shutil.move(temp_file_path, new_file_path)
                     
                     # 更新File对象的content字段，指向新的文件路径
@@ -448,3 +473,282 @@ def article_detail(request, pk):
         'images': images,
     }
     return render(request, 'detail.html', context)
+
+
+@login_required
+def article_update(request, pk):
+    """
+    文章修改视图
+    """
+    # 使用index_id获取文章的最新版本
+    try:
+        article = Article.objects.filter(
+            index_id=pk,
+            deleted=False
+        ).order_by('-updated_at').first()
+
+        if not article:
+            raise Article.DoesNotExist
+    except Article.DoesNotExist:
+        return render(request, '404.html', status=404)
+
+    # 验证用户是否为文章作者
+    if article.author_id != request.user:
+        messages.error(request, '您没有权限修改这篇文章')
+        return redirect('article:article_detail', pk=pk)
+
+    # 获取用户的临时文件
+    temp_files = TemporaryFile.objects.filter(author_id=request.user)
+
+    # 获取文章已有的文件
+    existing_files = article.files.all()
+
+    # 获取文章已有的图片
+    existing_images = article.images.all()
+
+    if request.method == 'POST':
+        form = ArticleForm(request.POST, instance=article)
+
+        if form.is_valid():
+            # 保存文章基本信息
+            article = form.save(commit=False)
+            article.save()
+
+            # 处理上传的新图片
+            uploaded_images = request.FILES.getlist('images')
+            image_map = {}
+            temp_images = []
+
+            # 获取前端传递的图片ID映射
+            image_id_mapping = []
+            if 'image_id_mapping' in request.POST:
+                try:
+                    image_id_mapping = json.loads(request.POST.get('image_id_mapping', '[]'))
+                    print(f"前端传递的图片ID映射: {image_id_mapping}")
+                except json.JSONDecodeError:
+                    print("解析图片ID映射失败")
+
+            # 获取现有图片数量，用于新图片的ID
+            existing_images_count = article.images.count()
+            next_image_id = existing_images_count + 1
+
+            # 创建前端ID到后端连续ID的映射
+            frontend_to_backend_id = {}
+            for idx, frontend_id in enumerate(image_id_mapping):
+                backend_id = str(next_image_id + idx)
+                frontend_to_backend_id[str(frontend_id)] = backend_id
+                print(f"ID映射: 前端 {frontend_id} -> 后端 {backend_id}")
+
+            # 确保媒体目录存在
+            media_root = settings.MEDIA_ROOT
+            images_dir = os.path.join(media_root, 'images')
+            os.makedirs(images_dir, exist_ok=True)
+
+            # 先创建所有上传的图片对象，使用连续的后端ID
+            for idx, img_file in enumerate(uploaded_images):
+                # 使用连续的后端ID
+                img_id = str(next_image_id + idx)
+
+                print(f"处理第 {idx + 1} 个图片文件: {img_file.name}, 分配后端ID: {img_id}")
+
+                # 创建Image对象并保存
+                image = Image.objects.create(
+                    title=f"图片_{img_id}",
+                    content=img_file,
+                    author_id=request.user
+                )
+
+                print(f"已创建Image对象，ID: {image.id}")
+                print(f"文件路径: {image.content.path}")
+                print(f"文件名: {image.content.name}")
+                print(f"文件URL: {image.content.url}")
+                print(f"文件是否存在: {os.path.exists(image.content.path)}")
+
+                image_map[img_id] = image
+                temp_images.append((img_id, image))
+
+            # 分析文章内容，找出哪些新图片ID被引用
+            content = article.content
+            referenced_img_ids = set()
+
+            img_matches = re.findall(r'\[\[img_id=(\d+)]]', content)
+            referenced_img_ids.update(img_matches)
+
+            # 将前端ID映射到后端连续ID
+            backend_referenced_img_ids = set()
+            for frontend_id in referenced_img_ids:
+                if frontend_id in frontend_to_backend_id:
+                    backend_id = frontend_to_backend_id[frontend_id]
+                    backend_referenced_img_ids.add(backend_id)
+                    print(f"引用ID映射: 前端 {frontend_id} -> 后端 {backend_id}")
+
+            # 只为被引用的新图片创建ImageQuote关系
+            referenced_imgs = []
+            for img_id, image in temp_images:
+                if img_id in backend_referenced_img_ids:
+                    ImageQuote.objects.create(
+                        article=article,
+                        image=image
+                    )
+                    print(img_id, '被引用', image.content.path)
+                    referenced_imgs.append(image)
+                else:
+                    # 修复：使用Django的delete()方法删除文件和数据库记录
+                    try:
+                        # FileField.delete()会自动删除物理文件和数据库记录
+                        image.content.delete(save=False)  # 先删除文件
+                        image.delete()  # 再删除Image对象
+                        print(f"已删除未被引用的图片: {image.title}")
+                    except Exception as e:
+                        print(f"删除图片文件时出错: {e}")
+                        image.delete()  # 至少删除数据库记录
+
+            # 处理已有图片的删除
+            keep_image_ids = request.POST.getlist('keep_images')
+            current_images = article.images.all()
+            deleted_image_ids = []
+            for image in current_images:
+                print(image.title, str(image.id) not in keep_image_ids, image not in referenced_imgs, image not in image_map.values())
+                if (str(image.id) not in keep_image_ids) and (image not in referenced_imgs or image not in image_map.values()):
+                    deleted_image_ids.append(image.id)
+                    # 修复：使用Django的delete()方法删除文件和数据库记录
+                    try:
+                        # 删除图片与文章的关联
+                        ImageQuote.objects.filter(article=article, image=image).delete()
+                        # 删除文件和Image对象
+                        image.content.delete(save=False)  # 先删除文件
+                        image.delete()  # 再删除Image对象
+                        print(f"已删除图片: {image.title}")
+                    except Exception as e:
+                        print(f"删除图片文件时出错: {e}")
+                        # 即使出错也要删除数据库记录
+                        ImageQuote.objects.filter(article=article, image=image).delete()
+                        image.delete()
+
+            # 处理文章内容中的图片引用
+            content = article.content
+            content = content.replace(r'\[', '[ESCAPED_LEFT_BRACKET]')
+            content = content.replace(r'\]', '[ESCAPED_RIGHT_BRACKET]')
+
+            # 创建包含新旧图片的映射（注意：此时已删除的图片已经不在数据库中了，新图片已经关联）
+            full_image_map = {}
+            for idx, image in enumerate(article.images.all(), 1):
+                full_image_map[str(idx)] = image
+                print(f"已有图片映射: {idx} -> {image.title}, URL: {image.content.url}")
+
+            for img_id, image in image_map.items():
+                full_image_map[img_id] = image
+                print(f"新图片映射: {img_id} -> {image.title}, URL: {image.content.url}")
+
+            print(f"完整图片映射: {list(full_image_map.keys())}")
+
+            def replace_img_reference(match):
+                frontend_id = match.group(1)
+                print(f"处理图片引用: {frontend_id}")
+                # 先尝试使用前端ID映射
+                if frontend_id in frontend_to_backend_id:
+                    backend_id = frontend_to_backend_id[frontend_id]
+                    print(f"前端ID {frontend_id} 映射到后端ID {backend_id}")
+                    if backend_id in full_image_map:
+                        image = full_image_map[backend_id]
+                        image_url = image.content.url
+                        print(f"找到图片: {image.title}, URL: {image_url}")
+                        return f'![{image.title}]({image_url})'
+                # 如果没有映射，直接使用ID查找
+                if frontend_id in full_image_map:
+                    image = full_image_map[frontend_id]
+                    image_url = image.content.url
+                    print(f"直接找到图片: {image.title}, URL: {image_url}")
+                    return f'![{image.title}]({image_url})'
+                # 如果找不到对应的图片，返回空字符串（删除该引用）
+                print(f"警告：找不到ID为{frontend_id}的图片，删除该引用")
+                return ''
+
+            content = re.sub(r'\[\[img_id=(\d+)]]', replace_img_reference, content)
+            content = content.replace('[ESCAPED_LEFT_BRACKET]', '[')
+            content = content.replace('[ESCAPED_RIGHT_BRACKET]', ']')
+
+            article.content = content
+
+            # 处理临时文件，将其转换为正式文件并与文章关联
+            selected_file_ids = request.POST.getlist('selected_files')
+
+            for file_id in selected_file_ids:
+                try:
+                    temp_file = TemporaryFile.objects.get(id=file_id, author_id=request.user)
+
+                    files_dir = os.path.join(settings.MEDIA_ROOT, 'files')
+                    os.makedirs(files_dir, exist_ok=True)
+
+                    # 修复：正确获取临时文件的物理路径
+                    temp_file_path = temp_file.file.path if hasattr(temp_file.file, 'path') else None
+                    if not temp_file_path or not os.path.exists(temp_file_path):
+                        print(f"临时文件不存在或无法访问: {file_id}")
+                        continue
+
+                    file = File.objects.create(
+                        title=temp_file.filename,
+                        content=temp_file.file.name,
+                        author_id=request.user
+                    )
+
+                    file_extension = os.path.splitext(temp_file.filename)[1]
+                    new_filename = f"{file.id}{file_extension}"
+                    new_file_path = os.path.join(files_dir, new_filename)
+
+                    shutil.move(temp_file_path, new_file_path)
+
+                    file.content = f"files/{new_filename}"
+                    file.save()
+
+                    FileQuote.objects.create(
+                        article=article,
+                        file=file
+                    )
+
+                    # 删除临时文件记录（物理文件已经移动了）
+                    temp_file.delete()
+                except TemporaryFile.DoesNotExist:
+                    continue
+                except Exception as e:
+                    print(f"处理临时文件时出错: {file_id}, 错误: {str(e)}")
+                    continue
+
+            article.save()
+
+            messages.success(request, '文章修改成功！')
+            return redirect('article:article_detail', pk=article.index_id)
+        else:
+            print("表单验证失败:")
+            print(form.errors)
+    else:
+        # 将文章内容中的Markdown图片引用转换回[[img_id=X]]格式
+        # 创建图片URL到ID的映射
+        image_url_to_id = {}
+        for idx, image in enumerate(existing_images, 1):
+            image_url_to_id[image.content.url] = idx
+
+        # 替换Markdown图片引用为[[img_id=X]]格式
+        content = article.content
+
+        def markdown_to_img_id(match):
+            alt_text = match.group(1)
+            url = match.group(2)
+            if url in image_url_to_id:
+                img_id = image_url_to_id[url]
+                return f'[[img_id={img_id}]]'
+            return match.group(0)
+
+        content = re.sub(r'!\[([^]]*)]\(([^)]+)\)', markdown_to_img_id, content)
+
+        # 更新form的初始值
+        form = ArticleForm(instance=article)
+        form.fields['content'].initial = content
+
+    return render(request, 'edit.html', {
+        'form': form,
+        'article': article,
+        'temp_files': temp_files,
+        'existing_files': existing_files,
+        'existing_images': existing_images
+    })

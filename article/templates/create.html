@@ -485,7 +485,42 @@
                     });
                     
                     console.log('引用的图片文件数量:', referencedFiles.length);
-                    
+
+                    // 只提交被引用的图片文件
+                    // 先移除原有的文件输入
+                    const originalImageInput = document.getElementById('images');
+                    if (originalImageInput) {
+                        const newImageInput = originalImageInput.cloneNode(false);
+                        originalImageInput.parentNode.replaceChild(newImageInput, originalImageInput);
+                        
+                        // 添加被引用的图片到新的输入
+                        const dataTransfer = new DataTransfer();
+                        referencedFiles.forEach(file => {
+                            dataTransfer.items.add(file);
+                        });
+                        newImageInput.files = dataTransfer.files;
+                        console.log('更新后的图片输入文件数量:', newImageInput.files.length);
+                    }
+
+                    // 添加图片ID映射信息到表单
+                    // 告诉服务器前端分配的ID顺序
+                    const imageIdMapping = referencedFiles.map(file => {
+                        const img = uploadedImages.find(img => img.file === file);
+                        return img ? img.id : null;
+                    }).filter(id => id !== null);
+
+                    // 移除旧的映射字段
+                    const oldMappingInput = form.querySelector('input[name="image_id_mapping"]');
+                    if (oldMappingInput) oldMappingInput.remove();
+
+                    // 添加新的映射字段
+                    const mappingInput = document.createElement('input');
+                    mappingInput.type = 'hidden';
+                    mappingInput.name = 'image_id_mapping';
+                    mappingInput.value = JSON.stringify(imageIdMapping);
+                    form.appendChild(mappingInput);
+                    console.log('图片ID映射:', imageIdMapping);
+
                     // 检查已上传文件列表
                     const allFileCheckboxes = document.querySelectorAll('.file-checkbox');
                     console.log('所有文件复选框数量:', allFileCheckboxes.length);

@@ -1,0 +1,723 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}修改文章 - 校园博客{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12 col-lg-12 col-xl-12 mx-auto">
+        <div class="card">
+            <div class="card-header bg-warning text-white">
+                <h2 class="mb-0"><i class="fas fa-edit mr-2"></i>修改文章</h2>
+            </div>
+            <div class="card-body">
+                <form method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    <!-- 隐藏字段，用于存储之前上传的图片ID -->
+                    <input type="hidden" id="previous_images" name="previous_images" value="">
+                    
+                    {% if form.non_field_errors %}
+                        <div class="alert alert-danger">
+                            {{ form.non_field_errors }}
+                        </div>
+                    {% endif %}
+                    
+                    <div class="form-group">
+                        <label for="{{ form.title.id_for_label }}">文章标题</label>
+                        {{ form.title }}
+                        {% if form.title.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.title.errors }}
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="{{ form.content.id_for_label }}">文章内容 (支持Markdown)</label>
+                        <!-- 大屏幕：左右分栏，中等屏幕：上下排列，小屏幕：堆叠 -->
+                        <div class="row">
+                            <div class="col-12 col-lg-6 mb-3 mb-lg-0">
+                                {{ form.content }}
+                                {% if form.content.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.content.errors }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div class="col-12 col-lg-6">
+                                <label>预览</label>
+                                <div id="markdown-preview" class="border p-3 rounded" style="min-height: 300px; max-height: 500px; overflow-y: auto;"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="images">上传图片</label>
+                        <div class="custom-file">
+                            <input type="file" name="images" class="custom-file-input" id="images" multiple>
+                            <label class="custom-file-label" for="images">选择图片文件...</label>
+                        </div>
+                        <small class="form-text text-muted">支持上传多张图片，可以使用 [[img_id=id]] 在文章中引用图片（id从{{ existing_images|length|add:1 }}开始）</small>
+                        
+                        <!-- 图片预览区域 -->
+                        <div id="image-preview-container" class="mt-3">
+                            <div class="row" id="image-preview-row"></div>
+                        </div>
+
+                        <!-- 已有图片列表 -->
+                        {% if existing_images %}
+                        <div class="mt-3">
+                            <h6>已有图片</h6>
+                            <div class="row">
+                                {% for image in existing_images %}
+                                <div class="col-md-3 col-sm-4 col-6 mb-3">
+                                    <div class="card">
+                                        <img src="{{ image.content.url }}" class="card-img-top" alt="{{ image.title }}" style="height: 150px; object-fit: cover;">
+                                        <div class="card-body p-2">
+                                            <div class="custom-control custom-checkbox">
+                                                <input type="checkbox" class="custom-control-input" id="image_{{ image.id }}" name="keep_images" value="{{ image.id }}" checked>
+                                                <label class="custom-control-label" for="image_{{ image.id }}">
+                                                    <small>图片 {{ forloop.counter }}</small>
+                                                </label>
+                                            </div>
+                                            <small class="text-muted d-block mt-1">ID: {{ forloop.counter }}</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            <small class="form-text text-muted">取消勾选将删除该图片</small>
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="file-upload">上传文件附件</label>
+                        <div class="custom-file mb-3">
+                            <input type="file" class="custom-file-input" id="file-upload" multiple>
+                            <label class="custom-file-label" for="file-upload">选择文件...</label>
+                        </div>
+                        <small class="form-text text-muted">支持上传多个文件，单个文件不超过100MB。上传的文件将在保存修改时与文章关联。</small>
+                        
+                        <!-- 文件上传进度区域 -->
+                        <div id="upload-progress-container" class="mt-3" style="display: none;">
+                            <h6>上传进度</h6>
+                            <div id="upload-progress-list"></div>
+                        </div>
+                        
+                        <!-- 已上传文件列表 -->
+                        <div id="uploaded-files-container" class="mt-3">
+                            <h6>已上传文件</h6>
+                            <div class="list-group" id="uploaded-files-list">
+                                <!-- 临时文件将通过AJAX加载 -->
+                            </div>
+                        </div>
+                        
+                        <!-- 已有文件附件列表 -->
+                        {% if existing_files %}
+                        <div class="mt-3">
+                            <h6>已有文件附件</h6>
+                            <div class="list-group">
+                                {% for file in existing_files %}
+                                <div class="list-group-item">
+                                    <div class="custom-control custom-checkbox">
+                                        <input type="checkbox" class="custom-control-input" id="file_{{ file.id }}" name="keep_files" value="{{ file.id }}" checked>
+                                        <label class="custom-control-label" for="file_{{ file.id }}">
+                                            <i class="fas fa-file mr-2"></i>{{ file.name }}
+                                            <small class="text-muted ml-2">({{ file.size|filesizeformat }})</small>
+                                        </label>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            <small class="form-text text-muted">取消勾选的文件将从文章中移除</small>
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="form-group">
+                        <button type="submit" class="btn btn-warning">
+                            <i class="fas fa-save mr-1"></i> 保存修改
+                        </button>
+                        <a href="{% url 'article:article_detail' article.index_id %}" class="btn btn-secondary ml-2">
+                            <i class="fas fa-times mr-1"></i> 取消
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-info-circle mr-2"></i>Markdown语法提示</h5>
+            </div>
+            <div class="card-body">
+                <!-- 响应式布局：大屏幕两列，中等屏幕两列，小屏幕一列 -->
+                <div class="row">
+                    <div class="col-12 col-md-6 mb-3 mb-md-0">
+                        <h6>基础语法</h6>
+                        <ul class="list-unstyled small">
+                            <li><code># 标题</code> - 一级标题</li>
+                            <li><code>## 标题</code> - 二级标题</li>
+                            <li><code>**粗体**</code> - <strong>粗体</strong></li>
+                            <li><code>*斜体*</code> - <em>斜体</em></li>
+                            <li><code>`代码`</code> - <code>代码</code></li>
+                            <li><code>[链接](url)</code> - 链接</li>
+                            <li><code>![图片](url)</code> - 图片</li>
+                            <li><code>[[img_id=1]]</code> - 引用上传的第1张图片</li>
+                            <li><code>\[</code> / <code>\]</code> - 转义方括号</li>
+                        </ul>
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <h6>高级语法</h6>
+                        <ul class="list-unstyled small">
+                            <li><code>- 列表项</code> - 无序列表</li>
+                            <li><code>1. 列表项</code> - 有序列表</li>
+                            <li><code>> 引用</code> - 引用块</li>
+                            <li><code>```代码块```</code> - 代码块</li>
+                            <li><code>--- 或 ***</code> - 分割线</li>
+                            <li><code>|表头|表头|</code> - 表格</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<style>
+/* 响应式编辑器样式 */
+@media (max-width: 991.98px) {
+    /* 中等屏幕和小屏幕：调整编辑器和预览区域的高度 */
+    #{{ form.content.id_for_label }} {
+        min-height: 300px;
+    }
+    
+    #markdown-preview {
+        min-height: 200px;
+        max-height: 400px;
+    }
+}
+
+@media (max-width: 767.98px) {
+    /* 小屏幕：进一步优化高度 */
+    #{{ form.content.id_for_label }} {
+        min-height: 250px;
+    }
+    
+    #markdown-preview {
+        min-height: 150px;
+        max-height: 300px;
+    }
+}
+
+/* 确保编辑器和预览区域在各种屏幕尺寸下都有合适的高度 */
+#{{ form.content.id_for_label }} {
+    min-height: 400px;
+    resize: vertical; /* 允许垂直调整大小 */
+}
+
+#markdown-preview {
+    min-height: 400px;
+    max-height: 600px;
+    overflow-y: auto;
+}
+
+/* 图片预览区域样式 */
+#image-preview-container {
+    border: 1px dashed #ced4da;
+    border-radius: 0.25rem;
+    padding: 1rem;
+    background-color: #f8f9fa;
+}
+
+#image-preview-container .card {
+    transition: transform 0.2s;
+}
+
+#image-preview-container .card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+#image-preview-container .copy-ref-btn,
+#image-preview-container .delete-img-btn {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+}
+
+/* 自定义文件上传样式 */
+.custom-file {
+    margin-bottom: 0.5rem;
+}
+
+.custom-file-input:focus ~ .custom-file-label {
+    border-color: #80bdff;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+.custom-file-label::after {
+    content: "浏览";
+}
+
+/* 优化按钮在小屏幕上的显示 */
+@media (max-width: 575.98px) {
+    .btn {
+        font-size: 0.875rem;
+        padding: 0.375rem 0.75rem;
+    }
+    
+    .btn i {
+        margin-right: 0.25rem !important;
+    }
+}
+</style>
+
+<script src="{% static 'js/marked/marked.min.js' %}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const contentField = document.getElementById('{{ form.content.id_for_label }}');
+        const previewDiv = document.getElementById('markdown-preview');
+        
+        // 将uploadedImages和nextImageId移到外层作用域
+        let uploadedImages = [];
+        let nextImageId = {{ existing_images|length|add:1 }};
+        
+        if (contentField && previewDiv) {
+            // 创建字数统计显示元素
+            const counter = document.createElement('div');
+            counter.className = 'text-muted small mt-1';
+            counter.textContent = '字数: 0';
+            contentField.parentNode.appendChild(counter);
+            
+            // 配置marked选项
+            marked.setOptions({
+                breaks: true,  // 支持换行
+                gfm: true,     // 支持GitHub风格的Markdown
+                headerIds: true, // 为标题添加ID
+                sanitize: false // 不清理HTML（允许自定义HTML）
+            });
+            
+            // 更新预览和字数统计
+            function updatePreview() {
+                const text = contentField.value;
+                previewDiv.innerHTML = marked.parse(text);
+                
+                // 更新字数统计
+                const cleanText = text.replace(/\s/g, ''); // 去除空格
+                counter.textContent = `字数: ${cleanText.length}`;
+            }
+            
+            // 监听输入事件
+            contentField.addEventListener('input', updatePreview);
+            
+            // 初始化预览
+            updatePreview();
+            
+            // 响应式调整：监听窗口大小变化
+            function adjustEditorHeight() {
+                const windowHeight = window.innerHeight;
+                const editorTop = contentField.getBoundingClientRect().top;
+                const availableHeight = windowHeight - editorTop - 200; // 留出200px用于其他元素
+                
+                if (availableHeight > 250) {
+                    contentField.style.minHeight = Math.min(availableHeight, 600) + 'px';
+                    previewDiv.style.minHeight = Math.min(availableHeight, 600) + 'px';
+                }
+            }
+            
+            // 初始调整和监听窗口大小变化
+            adjustEditorHeight();
+            window.addEventListener('resize', adjustEditorHeight);
+            
+            // 图片预览和引用功能
+            const imageInput = document.getElementById('images');
+            const imagePreviewRow = document.getElementById('image-preview-row');
+            const customFileLabel = document.querySelector('.custom-file-label');
+            
+            if (imageInput && imagePreviewRow) {
+                // 监听文件选择
+                imageInput.addEventListener('change', function(e) {
+                    const files = Array.from(e.target.files);
+                    
+                    // 更新文件名显示
+                    if (files.length > 0) {
+                        if (files.length === 1) {
+                            customFileLabel.textContent = files[0].name;
+                        } else {
+                            customFileLabel.textContent = `已选择 ${files.length} 个文件`;
+                        }
+                    } else {
+                        customFileLabel.textContent = '选择图片文件...';
+                    }
+                    
+                    // 为每个文件创建预览
+                    files.forEach((file, index) => {
+                        if (file.type.startsWith('image/')) {
+                            const reader = new FileReader();
+                            
+                            reader.onload = function(e) {
+                                // 计算新图片的ID
+                                const imageId = nextImageId;
+                                nextImageId++;
+                                
+                                uploadedImages.push({
+                                    id: imageId,
+                                    name: file.name,
+                                    url: e.target.result,
+                                    file: file // 保存文件对象的引用
+                                });
+                                
+                                // 创建预览元素
+                                const colDiv = document.createElement('div');
+                                colDiv.className = 'col-md-4 col-sm-6 mb-3';
+                                
+                                colDiv.innerHTML = `
+                                    <div class="card h-100">
+                                        <img src="${e.target.result}" class="card-img-top" alt="预览" style="height: 150px; object-fit: cover;">
+                                        <div class="card-body p-2">
+                                            <h6 class="card-title small mb-1">${file.name}</h6>
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <span class="badge badge-primary">ID: ${imageId}</span>
+                                                <div>
+                                                    <button type="button" class="btn btn-sm btn-outline-primary copy-ref-btn mr-1" data-id="${imageId}">
+                                                        <i class="fas fa-copy"></i> 引用
+                                                    </button>
+                                                    <button type="button" class="btn btn-sm btn-outline-danger delete-img-btn" data-id="${imageId}">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `;
+                                
+                                imagePreviewRow.appendChild(colDiv);
+                                
+                                // 添加引用按钮点击事件
+                                const copyBtn = colDiv.querySelector('.copy-ref-btn');
+                                copyBtn.addEventListener('click', function() {
+                                    const refText = `[[img_id=${imageId}]]`;
+                                    
+                                    // 将引用文本插入到编辑器中光标位置
+                                    const startPos = contentField.selectionStart;
+                                    const endPos = contentField.selectionEnd;
+                                    const beforeText = contentField.value.substring(0, startPos);
+                                    const afterText = contentField.value.substring(endPos);
+                                    
+                                    contentField.value = beforeText + refText + afterText;
+                                    contentField.focus();
+                                    contentField.setSelectionRange(startPos + refText.length, startPos + refText.length);
+                                    
+                                    // 更新预览
+                                    updatePreview();
+                                    
+                                    // 显示提示
+                                    const toast = document.createElement('div');
+                                    toast.className = 'position-fixed bottom-0 right-0 p-3';
+                                    toast.style.zIndex = '5';
+                                    toast.innerHTML = `
+                                        <div class="toast show" role="alert">
+                                            <div class="toast-body">
+                                                已插入图片引用: ${refText}
+                                            </div>
+                                        </div>
+                                    `;
+                                    document.body.appendChild(toast);
+                                    
+                                    setTimeout(() => {
+                                        document.body.removeChild(toast);
+                                    }, 2000);
+                                });
+                                
+                                // 添加删除按钮点击事件
+                                const deleteBtn = colDiv.querySelector('.delete-img-btn');
+                                deleteBtn.addEventListener('click', function() {
+                                    // 从uploadedImages数组中移除该图片
+                                    uploadedImages = uploadedImages.filter(img => img.id !== imageId);
+                                    
+                                    // 从DOM中移除该图片预览
+                                    imagePreviewRow.removeChild(colDiv);
+                                    
+                                    // 更新隐藏字段
+                                    const previousImagesInput = document.getElementById('previous_images');
+                                    if (previousImagesInput) {
+                                        const imageIds = uploadedImages.map(img => img.id).join(',');
+                                        previousImagesInput.value = imageIds;
+                                    }
+                                    
+                                    // 显示删除提示
+                                    const toast = document.createElement('div');
+                                    toast.className = 'position-fixed bottom-0 right-0 p-3';
+                                    toast.style.zIndex = '5';
+                                    toast.innerHTML = `
+                                        <div class="toast show" role="alert">
+                                            <div class="toast-body">
+                                                已删除图片 ID: ${imageId}
+                                            </div>
+                                        </div>
+                                    `;
+                                    document.body.appendChild(toast);
+                                    
+                                    setTimeout(() => {
+                                        document.body.removeChild(toast);
+                                    }, 2000);
+                                });
+                            };
+                            
+                            reader.readAsDataURL(file);
+                        }
+                    });
+                    
+                    // 更新隐藏字段，存储所有图片ID
+                    const previousImagesInput = document.getElementById('previous_images');
+                    if (previousImagesInput) {
+                        const imageIds = uploadedImages.map(img => img.id).join(',');
+                        previousImagesInput.value = imageIds;
+                    }
+                });
+            }
+            
+            // 文件上传功能
+            const fileUploadInput = document.getElementById('file-upload');
+            const uploadProgressContainer = document.getElementById('upload-progress-container');
+            const uploadProgressList = document.getElementById('upload-progress-list');
+            const uploadedFilesList = document.getElementById('uploaded-files-list');
+            
+            if (fileUploadInput && uploadProgressList && uploadedFilesList) {
+                // 加载已上传的临时文件
+                function loadUploadedFiles() {
+                    fetch('{% url "article:get_temp_files" %}')
+                        .then(response => response.json())
+                        .then(data => {
+                            uploadedFilesList.innerHTML = '';
+                            
+                            if (data.files && data.files.length > 0) {
+                                data.files.forEach(file => {
+                                    const fileItem = document.createElement('div');
+                                    fileItem.className = 'list-group-item d-flex justify-content-between align-items-center';
+                                    fileItem.innerHTML = `
+                                        <div>
+                                            <i class="fas fa-file mr-2"></i>
+                                            <span>${file.name}</span>
+                                            <small class="text-muted ml-2">(${file.size})</small>
+                                        </div>
+                                        <button type="button" class="btn btn-sm btn-outline-danger delete-file-btn" data-file-id="${file.id}">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    `;
+                                    
+                                    // 添加删除按钮点击事件
+                                    const deleteBtn = fileItem.querySelector('.delete-file-btn');
+                                    deleteBtn.addEventListener('click', function() {
+                                        const fileId = this.getAttribute('data-file-id');
+                                        deleteTemporaryFile(fileId, fileItem);
+                                    });
+                                    
+                                    uploadedFilesList.appendChild(fileItem);
+                                });
+                            } else {
+                                uploadedFilesList.innerHTML = '<div class="list-group-item text-muted">暂无已上传文件</div>';
+                            }
+                        })
+                        .catch(error => {
+                            console.error('加载文件列表失败:', error);
+                        });
+                }
+                
+                // 删除临时文件
+                function deleteTemporaryFile(fileId, fileItem) {
+                    if (!confirm('确定要删除这个文件吗？')) {
+                        return;
+                    }
+                    
+                    const deleteUrl = `/article/delete-temp-file/${fileId}/`;
+                    
+                    fetch(deleteUrl, {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                        }
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            uploadedFilesList.removeChild(fileItem);
+                            
+                            // 如果没有文件了，显示提示
+                            if (uploadedFilesList.children.length === 0) {
+                                uploadedFilesList.innerHTML = '<div class="list-group-item text-muted">暂无已上传文件</div>';
+                            }
+                        } else {
+                            alert('删除文件失败: ' + data.message);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('删除文件失败:', error);
+                        alert('删除文件失败');
+                    });
+                }
+                
+                // 监听文件选择
+                fileUploadInput.addEventListener('change', function(e) {
+                    const files = Array.from(e.target.files);
+                    
+                    if (files.length === 0) {
+                        return;
+                    }
+                    
+                    // 显示上传进度区域
+                    uploadProgressContainer.style.display = 'block';
+                    
+                    // 更新文件名显示
+                    const fileLabel = fileUploadInput.nextElementSibling;
+                    if (files.length === 1) {
+                        fileLabel.textContent = files[0].name;
+                    } else {
+                        fileLabel.textContent = `已选择 ${files.length} 个文件`;
+                    }
+                    
+                    // 逐个上传文件
+                    files.forEach((file, index) => {
+                        uploadFile(file, index);
+                    });
+                });
+                
+                // 上传单个文件
+                function uploadFile(file, index) {
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    
+                    // 创建进度条元素
+                    const progressItem = document.createElement('div');
+                    progressItem.className = 'mb-2';
+                    progressItem.innerHTML = `
+                        <div class="d-flex justify-content-between mb-1">
+                            <span>${file.name}</span>
+                            <span class="progress-text">0%</span>
+                        </div>
+                        <div class="progress">
+                            <div class="progress-bar" role="progressbar" style="width: 0%"></div>
+                        </div>
+                    `;
+                    uploadProgressList.appendChild(progressItem);
+                    
+                    const progressBar = progressItem.querySelector('.progress-bar');
+                    const progressText = progressItem.querySelector('.progress-text');
+                    
+                    // 使用XMLHttpRequest上传文件以支持进度显示
+                    const xhr = new XMLHttpRequest();
+                    
+                    xhr.upload.addEventListener('progress', function(e) {
+                        if (e.lengthComputable) {
+                            const percentComplete = Math.round((e.loaded / e.total) * 100);
+                            progressBar.style.width = percentComplete + '%';
+                            progressText.textContent = percentComplete + '%';
+                        }
+                    });
+                    
+                    xhr.addEventListener('load', function() {
+                        if (xhr.status === 200) {
+                            const response = JSON.parse(xhr.responseText);
+                            
+                            if (response.success) {
+                                progressBar.classList.remove('progress-bar-striped', 'progress-bar-animated');
+                                progressBar.classList.add('bg-success');
+                                progressText.textContent = '完成';
+                                
+                                // 刷新已上传文件列表
+                                loadUploadedFiles();
+                            } else {
+                                progressBar.classList.remove('progress-bar-striped', 'progress-bar-animated');
+                                progressBar.classList.add('bg-danger');
+                                progressText.textContent = '失败: ' + response.message;
+                            }
+                        } else {
+                            progressBar.classList.remove('progress-bar-striped', 'progress-bar-animated');
+                            progressBar.classList.add('bg-danger');
+                            progressText.textContent = '上传失败';
+                        }
+                    });
+                    
+                    xhr.addEventListener('error', function() {
+                        progressBar.classList.remove('progress-bar-striped', 'progress-bar-animated');
+                        progressBar.classList.add('bg-danger');
+                        progressText.textContent = '上传失败';
+                    });
+                    
+                    xhr.open('POST', '{% url "article:upload_file" %}', true);
+                    xhr.setRequestHeader('X-CSRFToken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+                    xhr.send(formData);
+                }
+                
+                // 页面加载时获取已上传的文件
+                loadUploadedFiles();
+            }
+
+            // 表单提交处理
+            const form = document.querySelector('form[method="POST"]');
+            if (form) {
+                form.addEventListener('submit', function(e) {
+                    // 获取文章内容，找出所有被引用的图片ID
+                    const content = contentField.value;
+                    const referencedImgIds = new Set();
+                    const imgIdRegex = /\[\[img_id=(\d+)\]\]/g;
+                    let match;
+                    
+                    while ((match = imgIdRegex.exec(content)) !== null) {
+                        referencedImgIds.add(match[1]);
+                    }
+                    
+                    console.log('引用的图片ID:', Array.from(referencedImgIds));
+                    
+                    // 创建新的文件列表，只包含被引用的图片
+                    const referencedFiles = [];
+                    
+                    uploadedImages.forEach(img => {
+                        if (referencedImgIds.has(img.id.toString()) && img.file) {
+                            referencedFiles.push(img.file);
+                        }
+                    });
+                    
+                    console.log('引用的图片文件数量:', referencedFiles.length);
+                    
+                    // 只提交被引用的图片文件
+                    const originalImageInput = document.getElementById('images');
+                    if (originalImageInput) {
+                        const newImageInput = originalImageInput.cloneNode(false);
+                        originalImageInput.parentNode.replaceChild(newImageInput, originalImageInput);
+                        
+                        // 添加被引用的图片到新的输入
+                        const dataTransfer = new DataTransfer();
+                        referencedFiles.forEach(file => {
+                            dataTransfer.items.add(file);
+                        });
+                        newImageInput.files = dataTransfer.files;
+                        console.log('更新后的图片输入文件数量:', newImageInput.files.length);
+                    }
+
+                    // 添加图片ID映射信息到表单
+                    const imageIdMapping = referencedFiles.map(file => {
+                        const img = uploadedImages.find(img => img.file === file);
+                        return img ? img.id : null;
+                    }).filter(id => id !== null);
+
+                    // 移除旧的映射字段
+                    const oldMappingInput = form.querySelector('input[name="image_id_mapping"]');
+                    if (oldMappingInput) oldMappingInput.remove();
+
+                    // 添加新的映射字段
+                    const mappingInput = document.createElement('input');
+                    mappingInput.type = 'hidden';
+                    mappingInput.name = 'image_id_mapping';
+                    mappingInput.value = JSON.stringify(imageIdMapping);
+                    form.appendChild(mappingInput);
+                    console.log('图片ID映射:', imageIdMapping);
+                });
+            }
+        }
+    });
+</script>
+{% endblock %}
