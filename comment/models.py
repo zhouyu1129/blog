@@ -54,4 +54,3 @@ class Comment(models.Model):
 
 
 admin.site.register(Comment)
-admin.site.register(Comment_index_id_ProductSequenceLock)
