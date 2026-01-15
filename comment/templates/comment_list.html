@@ -1,0 +1,236 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block head %}
+<style>
+.comment-content {
+    line-height: 1.6;
+    font-size: 14px;
+}
+
+.comment-content h1,
+.comment-content h2,
+.comment-content h3,
+.comment-content h4,
+.comment-content h5,
+.comment-content h6 {
+    margin-top: 16px;
+    margin-bottom: 12px;
+    font-weight: 600;
+    line-height: 1.25;
+}
+
+.comment-content h1 {
+    font-size: 1.5em;
+}
+
+.comment-content h2 {
+    font-size: 1.25em;
+}
+
+.comment-content h3 {
+    font-size: 1.1em;
+}
+
+.comment-content p {
+    margin-bottom: 12px;
+}
+
+.comment-content code {
+    padding: 0.2em 0.4em;
+    margin: 0;
+    font-size: 85%;
+    background-color: rgba(27,31,35,0.05);
+    border-radius: 3px;
+    font-family: "SFMono-Regular",Consolas,"Liberation Mono",Menlo,Courier,monospace;
+}
+
+.comment-content pre {
+    padding: 12px;
+    overflow: auto;
+    font-size: 85%;
+    line-height: 1.45;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+    margin-bottom: 12px;
+}
+
+.comment-content pre code {
+    display: inline;
+    max-width: auto;
+    padding: 0;
+    margin: 0;
+    overflow: visible;
+    line-height: inherit;
+    word-wrap: normal;
+    background-color: transparent;
+    border: 0;
+}
+
+.comment-content ul,
+.comment-content ol {
+    padding-left: 2em;
+    margin-bottom: 12px;
+}
+
+.comment-content li {
+    margin-bottom: 0.25em;
+}
+
+.comment-content blockquote {
+    padding: 0 1em;
+    color: #6a737d;
+    border-left: 0.25em solid #dfe2e5;
+    margin: 0 0 12px 0;
+}
+</style>
+{% endblock %}
+
+{% block title %}{{ article.title }} - 评论 - 校园博客{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h4 class="mb-0"><i class="fas fa-comments mr-2"></i>{{ article.title }} - 评论</h4>
+                </div>
+                <div class="card-body">
+                    {% if user.is_authenticated %}
+                        <form action="{% url 'comment:comment_create' article.index_id %}" method="post">
+                            {% csrf_token %}
+                            <div class="mb-3">
+                                <label for="id_content" class="form-label">发表评论</label>
+                                <textarea class="form-control" id="id_content" name="content" rows="5" placeholder="请输入评论内容（支持Markdown格式）" required></textarea>
+                            </div>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-paper-plane mr-1"></i> 发表评论
+                            </button>
+                        </form>
+                    {% else %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle mr-2"></i>
+                            请<a href="{% url 'user:login' %}">登录</a>后发表评论
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            {% if page_obj %}
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">评论列表 ({{ page_obj.paginator.count }})</h5>
+                    </div>
+                    <div class="card-body">
+                        {% for comment in page_obj %}
+                            <div class="card mb-3 {% if comment.top %}border-warning{% endif %}">
+                                <div class="card-body">
+                                    {% if comment.top %}
+                                        <span class="badge bg-warning text-dark mb-2">
+                                            <i class="fas fa-thumbtack mr-1"></i>置顶
+                                        </span>
+                                    {% endif %}
+                                    <div class="d-flex justify-content-between align-items-start mb-2">
+                                        <div>
+                                            <strong>
+                                                {% if comment.author.nickname %}{{ comment.author.nickname }}{% else %}{{ comment.author.username }}{% endif %}
+                                            </strong>
+                                            <span class="text-muted small ml-2">
+                                                {{ comment.create_time|date:"Y-m-d H:i" }}
+                                                {% if comment.create_time != comment.update_time %}
+                                                    | 编辑于 {{ comment.update_time|date:"Y-m-d H:i" }}
+                                                {% endif %}
+                                            </span>
+                                        </div>
+                                        {% if user.is_authenticated and user == comment.author %}
+                                            <div>
+                                                <a href="{% url 'comment:comment_update' comment.index_id %}" class="btn btn-sm btn-outline-warning">
+                                                    <i class="fas fa-edit"></i>
+                                                </a>
+                                                <a href="{% url 'comment:comment_delete' comment.index_id %}" class="btn btn-sm btn-outline-danger">
+                                                    <i class="fas fa-trash"></i>
+                                                </a>
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="comment-content">
+                                        {{ comment.content_html|safe }}
+                                    </div>
+                                </div>
+                            </div>
+                        {% empty %}
+                            <div class="text-center text-muted py-4">
+                                <i class="fas fa-comments fa-3x mb-3"></i>
+                                <p>暂无评论，快来发表第一条评论吧！</p>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                {% if page_obj.has_other_pages %}
+                    <nav aria-label="评论分页" class="mt-4">
+                        <ul class="pagination justify-content-center">
+                            {% if page_obj.has_previous %}
+                                <li class="page-item">
+                                    <a class="page-link" href="{% url 'comment:comment_list' article.index_id page_obj.previous_page_number %}">上一页</a>
+                                </li>
+                            {% else %}
+                                <li class="page-item disabled">
+                                    <span class="page-link">上一页</span>
+                                </li>
+                            {% endif %}
+
+                            {% for num in page_obj.paginator.page_range %}
+                                {% if page_obj.number == num %}
+                                    <li class="page-item active">
+                                        <span class="page-link">{{ num }}</span>
+                                    </li>
+                                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="{% url 'comment:comment_list' article.index_id num %}">{{ num }}</a>
+                                    </li>
+                                {% endif %}
+                            {% endfor %}
+
+                            {% if page_obj.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="{% url 'comment:comment_list' article.index_id page_obj.next_page_number %}">下一页</a>
+                                </li>
+                            {% else %}
+                                <li class="page-item disabled">
+                                    <span class="page-link">下一页</span>
+                                </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                {% endif %}
+            {% endif %}
+
+            <div class="mt-4">
+                <a href="{% url 'article:article_detail' article.index_id %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left mr-1"></i> 返回文章
+                </a>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">文章信息</h5>
+                </div>
+                <div class="card-body">
+                    <h6>{{ article.title }}</h6>
+                    <p class="text-muted small">
+                        作者：{% if article.author_id.nickname %}{{ article.author_id.nickname }}{% else %}{{ article.author_id.username }}{% endif %}<br>
+                        发布于：{{ article.created_at|date:"Y-m-d H:i" }}
+                    </p>
+                    <a href="{% url 'article:article_detail' article.index_id %}" class="btn btn-sm btn-outline-primary">
+                        <i class="fas fa-eye mr-1"></i> 查看文章
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

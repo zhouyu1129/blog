@@ -414,14 +414,14 @@ def article_create(request):
     return render(request, 'create.html', {'form': form, 'temp_files': temp_files})
 
 
-def article_detail(request, pk):
+def article_detail(request, index_id):
     """
     文章详情视图
     """
     # 使用index_id获取文章的最新版本
     try:
         article = Article.objects.filter(
-            index_id=pk
+            index_id=index_id
         ).order_by('-updated_at').first()
 
         if not article:
@@ -483,14 +483,14 @@ def article_detail(request, pk):
 
 
 @login_required
-def article_update(request, pk):
+def article_update(request, index_id):
     """
     文章修改视图 - 创建新版本而不是直接修改
     """
     # 使用index_id获取文章的最新版本
     try:
         old_article = Article.objects.filter(
-            index_id=pk
+            index_id=index_id
         ).order_by('-updated_at').first()
 
         if not old_article:
@@ -507,7 +507,7 @@ def article_update(request, pk):
     # 验证用户是否为文章作者
     if old_article.author_id != request.user:
         messages.error(request, '您没有权限修改这篇文章')
-        return redirect('article:article_detail', pk=pk)
+        return redirect('article:article_detail', pk=index_id)
 
     # 获取用户的临时文件
     temp_files = TemporaryFile.objects.filter(author_id=request.user)
@@ -773,7 +773,7 @@ def article_update(request, pk):
             'content': content
         })
     article = Article.objects.filter(
-        index_id=pk,
+        index_id=index_id,
         deleted=False
     ).order_by('-updated_at').first()
 
@@ -787,14 +787,14 @@ def article_update(request, pk):
 
 
 @login_required
-def article_delete(request, pk):
+def article_delete(request, index_id):
     """
     文章删除视图 - 软删除所有版本
     """
     # 使用index_id获取文章的所有版本
     try:
         article = Article.objects.filter(
-            index_id=pk
+            index_id=index_id
         ).order_by('-updated_at').first()
 
         if not article:
@@ -808,14 +808,14 @@ def article_delete(request, pk):
         # 验证用户权限：只有作者或管理员可以删除
         if article.author_id != request.user and not request.user.is_staff:
             messages.error(request, '您没有权限删除这篇文章')
-            return redirect('article:article_detail', pk=pk)
+            return redirect('article:article_detail', pk=index_id)
 
     except Article.DoesNotExist:
         return render(request, '404.html', status=404)
 
     if request.method == 'POST':
         # 软删除所有版本
-        Article.objects.filter(index_id=pk).update(deleted=True)
+        Article.objects.filter(index_id=index_id).update(deleted=True)
         messages.success(request, '文章已删除')
         return redirect('article:article_list')
 
