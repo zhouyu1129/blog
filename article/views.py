@@ -28,7 +28,8 @@ def article_list(request):
         all_articles = Article.objects.filter(
             Q(title__icontains=search_query) |
             Q(content__icontains=search_query),
-            deleted=False
+            deleted=False,
+            hidden=False
         )
 
         # 按index_id分组，获取每个index_id的最新版本
@@ -42,15 +43,17 @@ def article_list(request):
         # 按更新时间排序
         articles.sort(key=lambda x: x.updated_at, reverse=True)
     else:
-        # 获取所有未删除文章的最新版本
+        # 获取所有未删除且未隐藏文章的最新版本
         subquery = Article.objects.filter(
-            deleted=False
+            deleted=False,
+            hidden=False
         ).values('index_id').annotate(
             max_updated=Max('updated_at')
         )
 
         articles = Article.objects.filter(
             deleted=False,
+            hidden=False,
             updated_at__in=[item['max_updated'] for item in subquery]
         ).order_by('-updated_at')
 
@@ -418,12 +421,16 @@ def article_detail(request, pk):
     # 使用index_id获取文章的最新版本
     try:
         article = Article.objects.filter(
-            index_id=pk,
-            deleted=False
+            index_id=pk
         ).order_by('-updated_at').first()
 
         if not article:
             raise Article.DoesNotExist
+
+        # 检查文章是否已删除
+        if article.deleted:
+            return render(request, 'article_deleted.html', status=404)
+
     except Article.DoesNotExist:
         return render(request, '404.html', status=404)
 
@@ -478,22 +485,27 @@ def article_detail(request, pk):
 @login_required
 def article_update(request, pk):
     """
-    文章修改视图
+    文章修改视图 - 创建新版本而不是直接修改
     """
     # 使用index_id获取文章的最新版本
     try:
-        article = Article.objects.filter(
-            index_id=pk,
-            deleted=False
+        old_article = Article.objects.filter(
+            index_id=pk
         ).order_by('-updated_at').first()
 
-        if not article:
+        if not old_article:
             raise Article.DoesNotExist
+
+        # 检查文章是否已删除
+        if old_article.deleted:
+            messages.error(request, '该文章已被删除，无法编辑')
+            return redirect('article:article_list')
+
     except Article.DoesNotExist:
         return render(request, '404.html', status=404)
 
     # 验证用户是否为文章作者
-    if article.author_id != request.user:
+    if old_article.author_id != request.user:
         messages.error(request, '您没有权限修改这篇文章')
         return redirect('article:article_detail', pk=pk)
 
@@ -501,18 +513,38 @@ def article_update(request, pk):
     temp_files = TemporaryFile.objects.filter(author_id=request.user)
 
     # 获取文章已有的文件
-    existing_files = article.files.all()
+    existing_files = old_article.files.all()
 
     # 获取文章已有的图片
-    existing_images = article.images.all()
+    existing_images = old_article.images.all()
 
     if request.method == 'POST':
-        form = ArticleForm(request.POST, instance=article)
+        form = ArticleForm(request.POST)
 
         if form.is_valid():
-            # 保存文章基本信息
-            article = form.save(commit=False)
+            # 创建新版本文章，使用相同的index_id
+            article = Article(
+                index_id=old_article.index_id,
+                title=form.cleaned_data['title'],
+                content=form.cleaned_data['content'],
+                author_id=request.user,
+                hidden=old_article.hidden
+            )
             article.save()
+
+            # 复制原有的文件关联到新文章
+            for file_quote in FileQuote.objects.filter(article=old_article):
+                FileQuote.objects.create(
+                    article=article,
+                    file=file_quote.file
+                )
+
+            # 复制原有的图片关联到新文章
+            for image_quote in ImageQuote.objects.filter(article=old_article):
+                ImageQuote.objects.create(
+                    article=article,
+                    image=image_quote.image
+                )
 
             # 处理上传的新图片
             uploaded_images = request.FILES.getlist('images')
@@ -603,27 +635,14 @@ def article_update(request, pk):
                         print(f"删除图片文件时出错: {e}")
                         image.delete()  # 至少删除数据库记录
 
-            # 处理已有图片的删除
+            # 处理已有图片的删除（只删除新文章中的关联，不删除图片文件本身）
             keep_image_ids = request.POST.getlist('keep_images')
             current_images = article.images.all()
-            deleted_image_ids = []
             for image in current_images:
-                print(image.title, str(image.id) not in keep_image_ids, image not in referenced_imgs, image not in image_map.values())
                 if (str(image.id) not in keep_image_ids) and (image not in referenced_imgs or image not in image_map.values()):
-                    deleted_image_ids.append(image.id)
-                    # 修复：使用Django的delete()方法删除文件和数据库记录
-                    try:
-                        # 删除图片与文章的关联
-                        ImageQuote.objects.filter(article=article, image=image).delete()
-                        # 删除文件和Image对象
-                        image.content.delete(save=False)  # 先删除文件
-                        image.delete()  # 再删除Image对象
-                        print(f"已删除图片: {image.title}")
-                    except Exception as e:
-                        print(f"删除图片文件时出错: {e}")
-                        # 即使出错也要删除数据库记录
-                        ImageQuote.objects.filter(article=article, image=image).delete()
-                        image.delete()
+                    # 只删除新文章中的关联，保留图片文件供其他版本使用
+                    ImageQuote.objects.filter(article=article, image=image).delete()
+                    print(f"已从新版本中移除图片: {image.title}")
 
             # 处理文章内容中的图片引用
             content = article.content
@@ -714,9 +733,16 @@ def article_update(request, pk):
                     print(f"处理临时文件时出错: {file_id}, 错误: {str(e)}")
                     continue
 
-            article.save()
+            # 处理已有文件的删除（只删除新文章中的关联，不删除文件本身）
+            keep_file_ids = request.POST.getlist('keep_files')
+            current_files = article.files.all()
+            for file in current_files:
+                if str(file.id) not in keep_file_ids:
+                    # 只删除新文章中的关联，保留文件供其他版本使用
+                    FileQuote.objects.filter(article=article, file=file).delete()
+                    print(f"已从新版本中移除文件: {file.title}")
 
-            messages.success(request, '文章修改成功！')
+            messages.success(request, '文章修改成功！新版本已创建')
             return redirect('article:article_detail', pk=article.index_id)
         else:
             print("表单验证失败:")
@@ -729,7 +755,7 @@ def article_update(request, pk):
             image_url_to_id[image.content.url] = idx
 
         # 替换Markdown图片引用为[[img_id=X]]格式
-        content = article.content
+        content = old_article.content
 
         def markdown_to_img_id(match):
             alt_text = match.group(1)
@@ -742,8 +768,14 @@ def article_update(request, pk):
         content = re.sub(r'!\[([^]]*)]\(([^)]+)\)', markdown_to_img_id, content)
 
         # 更新form的初始值
-        form = ArticleForm(instance=article)
-        form.fields['content'].initial = content
+        form = ArticleForm(initial={
+            'title': old_article.title,
+            'content': content
+        })
+    article = Article.objects.filter(
+        index_id=pk,
+        deleted=False
+    ).order_by('-updated_at').first()
 
     return render(request, 'edit.html', {
         'form': form,
@@ -752,3 +784,39 @@ def article_update(request, pk):
         'existing_files': existing_files,
         'existing_images': existing_images
     })
+
+
+@login_required
+def article_delete(request, pk):
+    """
+    文章删除视图 - 软删除所有版本
+    """
+    # 使用index_id获取文章的所有版本
+    try:
+        article = Article.objects.filter(
+            index_id=pk
+        ).order_by('-updated_at').first()
+
+        if not article:
+            raise Article.DoesNotExist
+
+        # 检查文章是否已删除
+        if article.deleted:
+            messages.error(request, '该文章已被删除')
+            return redirect('article:article_list')
+
+        # 验证用户权限：只有作者或管理员可以删除
+        if article.author_id != request.user and not request.user.is_staff:
+            messages.error(request, '您没有权限删除这篇文章')
+            return redirect('article:article_detail', pk=pk)
+
+    except Article.DoesNotExist:
+        return render(request, '404.html', status=404)
+
+    if request.method == 'POST':
+        # 软删除所有版本
+        Article.objects.filter(index_id=pk).update(deleted=True)
+        messages.success(request, '文章已删除')
+        return redirect('article:article_list')
+
+    return render(request, 'delete_confirm.html', {'article': article})
