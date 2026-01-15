@@ -10,6 +10,9 @@
                 <h5 class="mb-0">用户中心</h5>
             </div>
             <div class="list-group list-group-flush">
+                <a href="{% url 'user:user_profile' user.id %}" class="list-group-item list-group-item-action">
+                    <i class="fas fa-home"></i> 我的主页
+                </a>
                 <a href="{% url 'user:profile' %}" class="list-group-item list-group-item-action active">
                     <i class="fas fa-user"></i> 个人信息
                 </a>

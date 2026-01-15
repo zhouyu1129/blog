@@ -3,11 +3,17 @@ import random
 import string
 import threading
 
+import markdown
+
+from article.models import Article
+from comment.models import Comment
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import login, logout, authenticate
 from django.contrib.auth.decorators import login_required
 from django.core.mail import send_mail
+from django.core.paginator import Paginator
+from django.db.models import Max
 from django.http import JsonResponse
 from django.shortcuts import render, redirect
 from django.urls import reverse
@@ -463,3 +469,96 @@ def reset_password_view(request, user_uuid, reset_hash):
     except Exception as e:
         messages.error(request, f'重置失败：{str(e)}')
         return redirect(reverse('user:login'))
+
+
+def user_profile_view(request, user_id):
+    """
+    显示目标用户的个人信息、文章和评论
+    """
+    try:
+        target_user = CustomUser.objects.get(id=user_id)
+    except CustomUser.DoesNotExist:
+        return render(request, '404.html', status=404)
+
+    # 获取用户发布的文章（最新版本）
+    subquery = Article.objects.filter(
+        author_id=target_user,
+        deleted=False
+    ).values('index_id').annotate(
+        max_updated=Max('updated_at')
+    )
+
+    articles = Article.objects.filter(
+        author_id=target_user,
+        deleted=False,
+        updated_at__in=[item['max_updated'] for item in subquery]
+    ).order_by('-updated_at')
+
+    # 为文章内容渲染Markdown并生成预览
+    md = markdown.Markdown(extensions=[
+        'markdown.extensions.extra',
+        'markdown.extensions.codehilite',
+        'markdown.extensions.sane_lists',
+        'markdown.extensions.nl2br',
+    ])
+
+    for article in articles:
+        article.content_html = md.convert(article.content)
+        # 截取HTML内容的前200个字符作为预览，确保标签完整
+        content_preview = article.content_html[:200]
+        if len(article.content_html) > 200:
+            # 确保不截断在标签中间
+            last_open_tag = content_preview.rfind('<')
+            last_close_tag = content_preview.rfind('>')
+            if last_open_tag > last_close_tag:
+                # 截断在标签中间，截取到上一个闭合标签
+                content_preview = content_preview[:last_close_tag + 1]
+            article.content_preview = content_preview + '...'
+        else:
+            article.content_preview = content_preview
+
+    # 获取用户发布的评论（最新版本）
+    all_comments = Comment.objects.filter(
+        author=target_user,
+        deleted=False,
+        hidden=False
+    ).order_by('-update_time')
+
+    latest_comments = {}
+    for comment in all_comments:
+        if comment.index_id not in latest_comments:
+            latest_comments[comment.index_id] = comment
+
+    comments = list(latest_comments.values())
+    comments.sort(key=lambda x: x.create_time, reverse=True)
+
+    # 为评论渲染Markdown
+    md = markdown.Markdown(extensions=[
+        'markdown.extensions.extra',
+        'markdown.extensions.codehilite',
+        'markdown.extensions.sane_lists',
+        'markdown.extensions.nl2br',
+    ])
+
+    for comment in comments:
+        comment.content_html = md.convert(comment.content)
+        comment.article = Article.objects.filter(
+            index_id=comment.article_index_id,
+            deleted=False
+        ).order_by('-updated_at').first()
+
+    # 分页处理
+    article_paginator = Paginator(articles, 10)
+    article_page = request.GET.get('article_page', 1)
+    article_page_obj = article_paginator.get_page(article_page)
+
+    comment_paginator = Paginator(comments, 10)
+    comment_page = request.GET.get('comment_page', 1)
+    comment_page_obj = comment_paginator.get_page(comment_page)
+
+    context = {
+        'target_user': target_user,
+        'article_page_obj': article_page_obj,
+        'comment_page_obj': comment_page_obj,
+    }
+    return render(request, 'user_profile.html', context)

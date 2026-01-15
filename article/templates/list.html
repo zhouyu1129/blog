@@ -62,7 +62,7 @@
             <h2>文章列表</h2>
             {% if user.is_authenticated %}
                 <a href="{% url 'article:article_create' %}" class="btn btn-primary">
-                    <i class="fas fa-plus mr-1"></i> 写文章
+                    <i class="fas fa-plus mr-1"></i> 发布文章
                 </a>
             {% endif %}
         </div>

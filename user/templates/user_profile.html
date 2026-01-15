@@ -1,0 +1,336 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block head %}
+<style>
+.article-preview {
+    line-height: 1.6;
+    font-size: 14px;
+    max-height: 150px;
+    overflow: hidden;
+}
+
+.article-preview img {
+    max-width: 100%;
+    height: auto;
+}
+
+.comment-content {
+    line-height: 1.6;
+    font-size: 14px;
+}
+
+.comment-content h1,
+.comment-content h2,
+.comment-content h3,
+.comment-content h4,
+.comment-content h5,
+.comment-content h6 {
+    margin-top: 16px;
+    margin-bottom: 12px;
+    font-weight: 600;
+    line-height: 1.25;
+}
+
+.comment-content h1 {
+    font-size: 1.5em;
+}
+
+.comment-content h2 {
+    font-size: 1.25em;
+}
+
+.comment-content h3 {
+    font-size: 1.1em;
+}
+
+.comment-content p {
+    margin-bottom: 12px;
+}
+
+.comment-content code {
+    padding: 0.2em 0.4em;
+    margin: 0;
+    font-size: 85%;
+    background-color: rgba(27,31,35,0.05);
+    border-radius: 3px;
+    font-family: "SFMono-Regular",Consolas,"Liberation Mono",Menlo,Courier,monospace;
+}
+
+.comment-content pre {
+    padding: 12px;
+    overflow: auto;
+    font-size: 85%;
+    line-height: 1.45;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+    margin-bottom: 12px;
+}
+
+.comment-content pre code {
+    display: inline;
+    max-width: auto;
+    padding: 0;
+    margin: 0;
+    overflow: visible;
+    line-height: inherit;
+    word-wrap: normal;
+    background-color: transparent;
+    border: 0;
+}
+
+.comment-content ul,
+.comment-content ol {
+    padding-left: 2em;
+    margin-bottom: 12px;
+}
+
+.comment-content li {
+    margin-bottom: 0.25em;
+}
+
+.comment-content blockquote {
+    padding: 0 1em;
+    color: #6a737d;
+    border-left: 0.25em solid #dfe2e5;
+    margin: 0 0 12px 0;
+}
+</style>
+{% endblock %}
+
+{% block title %}{% if target_user.nickname %}{{ target_user.nickname }}{% else %}{{ target_user.username }}{% endif %} - 个人主页 - 校园博客{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-lg-4">
+            <div class="card mb-4">
+                <div class="card-body text-center">
+                    {% if target_user.avatar %}
+                        <img src="{{ target_user.avatar.url }}" alt="头像" class="rounded-circle mb-3" width="150" height="150">
+                    {% else %}
+                        <div class="rounded-circle bg-secondary d-inline-flex align-items-center justify-content-center text-white mb-3" style="width: 150px; height: 150px;">
+                            <i class="fas fa-user fa-4x"></i>
+                        </div>
+                    {% endif %}
+                    <h4>{% if target_user.nickname %}{{ target_user.nickname }}{% else %}{{ target_user.username }}{% endif %}</h4>
+                    <p class="text-muted">@{{ target_user.username }}</p>
+                    {% if target_user.bio %}
+                        <p class="text-muted">{{ target_user.bio }}</p>
+                    {% endif %}
+                    <div class="mt-3">
+                        <span class="badge bg-primary me-2">文章：{{ article_page_obj.paginator.count }}</span>
+                        <span class="badge bg-info">评论：{{ comment_page_obj.paginator.count }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="mb-0">个人信息</h6>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group list-group-flush">
+                        {% if target_user.real_name %}
+                            <li class="list-group-item">
+                                <strong>姓名：</strong>{{ target_user.real_name }}
+                            </li>
+                        {% endif %}
+                        {% if target_user.gender %}
+                            <li class="list-group-item">
+                                <strong>性别：</strong>
+                                {% if target_user.gender == 'male' %}男{% elif target_user.gender == 'female' %}女{% else %}其他{% endif %}
+                            </li>
+                        {% endif %}
+                        {% if target_user.age %}
+                            <li class="list-group-item">
+                                <strong>年龄：</strong>{{ target_user.age }}岁
+                            </li>
+                        {% endif %}
+                        <li class="list-group-item">
+                            <strong>注册时间：</strong>{{ target_user.date_joined|date:"Y年m月d日" }}
+                        </li>
+                        <li class="list-group-item">
+                            <strong>邮箱已验证：</strong>
+                            {% if target_user.email_verified %}
+                                <span class="badge bg-success">已验证</span>
+                            {% else %}
+                                <span class="badge bg-warning">未验证</span>
+                            {% endif %}
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-8">
+            <ul class="nav nav-tabs mb-4" id="userTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <a class="nav-link active" id="articles-tab" data-toggle="tab" href="#articles" role="tab" aria-controls="articles" aria-selected="true">
+                        <i class="fas fa-file-alt mr-1"></i> 文章
+                    </a>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <a class="nav-link" id="comments-tab" data-toggle="tab" href="#comments" role="tab" aria-controls="comments" aria-selected="false">
+                        <i class="fas fa-comments mr-1"></i> 评论
+                    </a>
+                </li>
+            </ul>
+
+            <div class="tab-content" id="userTabsContent">
+                <div class="tab-pane fade show active" id="articles" role="tabpanel" aria-labelledby="articles-tab">
+                    {% if article_page_obj %}
+                        {% for article in article_page_obj %}
+                            <div class="card mb-3">
+                                <div class="card-body">
+                                    <h5 class="card-title">
+                                        <a href="{% url 'article:article_detail' article.index_id %}">{{ article.title }}</a>
+                                    </h5>
+                                    <p class="card-text text-muted small">
+                                        <i class="fas fa-calendar mr-1"></i>{{ article.created_at|date:"Y-m-d H:i" }}
+                                        {% if article.created_at != article.updated_at %}
+                                            | <i class="fas fa-edit mr-1"></i>更新于 {{ article.updated_at|date:"Y-m-d H:i" }}
+                                        {% endif %}
+                                    </p>
+                                    <div class="card-text article-preview">
+                                        {{ article.content_preview|safe }}
+                                    </div>
+                                    <a href="{% url 'article:article_detail' article.index_id %}" class="btn btn-sm btn-outline-primary">
+                                        阅读全文
+                                    </a>
+                                </div>
+                            </div>
+                        {% empty %}
+                            <div class="text-center text-muted py-4">
+                                <i class="fas fa-file-alt fa-3x mb-3"></i>
+                                <p>暂无文章</p>
+                            </div>
+                        {% endfor %}
+
+                        {% if article_page_obj.has_other_pages %}
+                            <nav aria-label="文章分页" class="mt-4">
+                                <ul class="pagination justify-content-center">
+                                    {% if article_page_obj.has_previous %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?article_page={{ article_page_obj.previous_page_number }}&comment_page={{ comment_page_obj.number }}">上一页</a>
+                                        </li>
+                                    {% else %}
+                                        <li class="page-item disabled">
+                                            <span class="page-link">上一页</span>
+                                        </li>
+                                    {% endif %}
+
+                                    {% for num in article_page_obj.paginator.page_range %}
+                                        {% if article_page_obj.number == num %}
+                                            <li class="page-item active">
+                                                <span class="page-link">{{ num }}</span>
+                                            </li>
+                                        {% elif num > article_page_obj.number|add:'-3' and num < article_page_obj.number|add:'3' %}
+                                            <li class="page-item">
+                                                <a class="page-link" href="?article_page={{ num }}&comment_page={{ comment_page_obj.number }}">{{ num }}</a>
+                                            </li>
+                                        {% endif %}
+                                    {% endfor %}
+
+                                    {% if article_page_obj.has_next %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?article_page={{ article_page_obj.next_page_number }}&comment_page={{ comment_page_obj.number }}">下一页</a>
+                                        </li>
+                                    {% else %}
+                                        <li class="page-item disabled">
+                                            <span class="page-link">下一页</span>
+                                        </li>
+                                    {% endif %}
+                                </ul>
+                            </nav>
+                        {% endif %}
+                    {% endif %}
+                </div>
+
+                <div class="tab-pane fade" id="comments" role="tabpanel" aria-labelledby="comments-tab">
+                    {% if comment_page_obj %}
+                        {% for comment in comment_page_obj %}
+                            <div class="card mb-3">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-start mb-2">
+                                        <div>
+                                            <strong>
+                                                {% if comment.author.nickname %}{{ comment.author.nickname }}{% else %}{{ comment.author.username }}{% endif %}
+                                            </strong>
+                                            <span class="text-muted small ml-2">
+                                                {{ comment.create_time|date:"Y-m-d H:i" }}
+                                                {% if comment.create_time != comment.update_time %}
+                                                    | 编辑于 {{ comment.update_time|date:"Y-m-d H:i" }}
+                                                {% endif %}
+                                            </span>
+                                        </div>
+                                        {% if comment.top %}
+                                            <span class="badge bg-warning text-dark">
+                                                <i class="fas fa-thumbtack mr-1"></i>置顶
+                                            </span>
+                                        {% endif %}
+                                    </div>
+                                    <div class="comment-content">
+                                        {{ comment.content_html|safe }}
+                                    </div>
+                                    {% if comment.article %}
+                                        <div class="mt-2">
+                                            <small class="text-muted">
+                                                <i class="fas fa-file-alt mr-1"></i>
+                                                评论文章：<a href="{% url 'article:article_detail' comment.article.index_id %}">{{ comment.article.title }}</a>
+                                            </small>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        {% empty %}
+                            <div class="text-center text-muted py-4">
+                                <i class="fas fa-comments fa-3x mb-3"></i>
+                                <p>暂无评论</p>
+                            </div>
+                        {% endfor %}
+
+                        {% if comment_page_obj.has_other_pages %}
+                            <nav aria-label="评论分页" class="mt-4">
+                                <ul class="pagination justify-content-center">
+                                    {% if comment_page_obj.has_previous %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?article_page={{ article_page_obj.number }}&comment_page={{ comment_page_obj.previous_page_number }}">上一页</a>
+                                        </li>
+                                    {% else %}
+                                        <li class="page-item disabled">
+                                            <span class="page-link">上一页</span>
+                                        </li>
+                                    {% endif %}
+
+                                    {% for num in comment_page_obj.paginator.page_range %}
+                                        {% if comment_page_obj.number == num %}
+                                            <li class="page-item active">
+                                                <span class="page-link">{{ num }}</span>
+                                            </li>
+                                        {% elif num > comment_page_obj.number|add:'-3' and num < comment_page_obj.number|add:'3' %}
+                                            <li class="page-item">
+                                                <a class="page-link" href="?article_page={{ article_page_obj.number }}&comment_page={{ num }}">{{ num }}</a>
+                                            </li>
+                                        {% endif %}
+                                    {% endfor %}
+
+                                    {% if comment_page_obj.has_next %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?article_page={{ article_page_obj.number }}&comment_page={{ comment_page_obj.next_page_number }}">下一页</a>
+                                        </li>
+                                    {% else %}
+                                        <li class="page-item disabled">
+                                            <span class="page-link">下一页</span>
+                                        </li>
+                                    {% endif %}
+                                </ul>
+                            </nav>
+                        {% endif %}
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

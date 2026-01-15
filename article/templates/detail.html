@@ -261,7 +261,7 @@
                     </a>
                     {% if user.is_authenticated %}
                         <a href="{% url 'article:article_create' %}" class="btn btn-success btn-sm ml-2">
-                            <i class="fas fa-pen mr-1"></i> 写文章
+                            <i class="fas fa-pen mr-1"></i> 发布文章
                         </a>
                     {% endif %}
                 </div>
@@ -286,13 +286,17 @@
                     {% endif %}
                 </div>
                 <h5 class="text-center">
-                    {% if article.author_id.nickname %}{{ article.author_id.nickname }}{% else %}{{ article.author_id.username }}{% endif %}
+                    <a href="{% url 'user:user_profile' article.author_id.id %}" class="text-decoration-none text-dark">
+                        {% if article.author_id.nickname %}{{ article.author_id.nickname }}{% else %}{{ article.author_id.username }}{% endif %}
+                    </a>
                 </h5>
                 {% if article.author_id.bio %}
                     <p class="text-muted text-center">{{ article.author_id.bio }}</p>
                 {% endif %}
                 <div class="text-center">
-                    <a href="#" class="btn btn-outline-primary btn-sm">关注作者</a>
+                    <a href="{% url 'user:user_profile' article.author_id.id %}" class="btn btn-outline-primary btn-sm">
+                        <i class="fas fa-user mr-1"></i> 查看主页
+                    </a>
                 </div>
             </div>
         </div>
@@ -325,12 +329,15 @@
             </div>
             <div class="card-body">
                 <div class="d-grid gap-2">
+                    <a href="{% url 'comment:comment_list' article.index_id %}" class="btn btn-outline-info btn-sm">
+                        <i class="fas fa-comments mr-1"></i> 查看评论
+                    </a>
                     <a href="{% url 'article:article_list' %}" class="btn btn-outline-primary btn-sm">
                         <i class="fas fa-list mr-1"></i> 文章列表
                     </a>
                     {% if user.is_authenticated %}
                         <a href="{% url 'article:article_create' %}" class="btn btn-success btn-sm">
-                            <i class="fas fa-pen mr-1"></i> 写文章
+                            <i class="fas fa-pen mr-1"></i> 发布文章
                         </a>
                     {% endif %}
                     <a href="{% url 'about' %}" class="btn btn-outline-secondary btn-sm">

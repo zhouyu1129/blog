@@ -15,4 +15,5 @@ urlpatterns = [
     path('profile/send_email_code', send_email_code_view, name="send_email_code"),
     path('forgot_password', forgot_password_view, name="forgot_password"),
     path('reset_password/<uuid:user_uuid>/<str:reset_hash>', reset_password_view, name="reset_password"),
+    path('user/<uuid:user_id>/', user_profile_view, name="user_profile"),
 ]
