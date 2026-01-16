@@ -1,4 +1,35 @@
+# Django Blog Project
+
+一个基于 Django 5.0 的功能完整的博客系统，支持用户认证、文章发布、评论互动等功能。
+
+## 功能特性
+
+- 用户注册、登录、个人资料管理
+- 文章的创建、编辑、删除和浏览
+- 文章评论功能
+- Markdown 编辑器支持
+- 代码语法高亮
+- 响应式设计（基于 Bootstrap 5）
+- 邮件验证功能
+
+## 环境要求
+
+- Python 3.8+
+- Django 5.0+
+- PostgreSQL 数据库
+
+## 快速开始
+
+### 1. 安装依赖
+
+```bash
+pip install -r requirements.txt
+```
+
+### 2. 配置环境变量
+
 在使用前，需要在.env中填写邮件验证的发送邮箱信息
+
 # file:./.env
 
 # 邮件配置
@@ -12,5 +43,104 @@ DEFAULT_FROM_EMAIL=your_email@qq.com
 # 网站配置
 SITE_URL=http://127.0.0.1:8000
 
+### 3. 配置数据库
+
 注意修改settings.py中有关数据库的部分
 默认使用postgre sql作为数据库，使用账号blogserver密码SERVER连接到数据库blog
+
+### 4. 运行数据库迁移
+
+```bash
+python manage.py makemigrations
+python manage.py migrate
+```
+
+### 5. 创建超级用户
+
+```bash
+python manage.py createsuperuser
+```
+
+### 6. 启动开发服务器
+
+```bash
+python manage.py runserver
+```
+
+## 项目结构
+
+```
+blog/
+├── blog/           # 项目配置目录
+├── user/           # 用户应用
+├── article/        # 文章应用
+├── comment/        # 评论应用
+├── static/         # 静态文件
+├── templates/      # 模板文件
+├── media/          # 媒体文件
+└── manage.py       # Django 管理脚本
+```
+
+## 许可证
+
+本项目采用 MIT 许可证开源。
+
+### 项目许可证
+
+Copyright (c) 2025 zhouyu1129
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+### 第三方依赖许可证
+
+本项目使用了以下开源库，这些库都有自己的许可证：
+
+**Python 依赖：**
+- Django (BSD 3-Clause License)
+- psycopg2-binary (PostgreSQL License / LGPL)
+- python-decouple (MIT License)
+- Pillow (Standard PIL License)
+- django-crispy-forms (MIT License)
+- crispy-bootstrap5 (MIT License)
+- markdown (BSD License)
+- Pygments (BSD License)
+- python-dotenv (BSD License)
+
+**前端依赖：**
+- Bootstrap (MIT License)
+- jQuery (MIT License)
+- Popper.js (MIT License)
+- Font Awesome (CC BY 4.0 / MIT License)
+- AOS (MIT License)
+- Prism (MIT License)
+- Marked (MIT License)
+- Bootstrap TOC (MIT License)
+
+所有依赖都采用宽松的开源许可证，与 MIT 许可证完全兼容。
+
+完整的第三方许可证声明请参见 [THIRD-PARTY-NOTICES](THIRD-PARTY-NOTICES) 文件。
+
+## 贡献
+
+欢迎提交 Issue 和 Pull Request！
+
+## 联系方式
+
+- 作者：zhouyu1129
+- 许可证：MIT License

@@ -403,7 +403,7 @@ def article_create(request):
             article.save()
 
             messages.success(request, '文章创建成功！')
-            return redirect('article:article_detail', pk=article.index_id)
+            return redirect('article:article_detail', index_id=article.index_id)
         else:
             # 如果表单无效，打印错误信息
             print("表单验证失败:")
@@ -507,7 +507,7 @@ def article_update(request, index_id):
     # 验证用户是否为文章作者
     if old_article.author_id != request.user:
         messages.error(request, '您没有权限修改这篇文章')
-        return redirect('article:article_detail', pk=index_id)
+        return redirect('article:article_detail', index_id=index_id)
 
     # 获取用户的临时文件
     temp_files = TemporaryFile.objects.filter(author_id=request.user)
@@ -743,7 +743,7 @@ def article_update(request, index_id):
                     print(f"已从新版本中移除文件: {file.title}")
 
             messages.success(request, '文章修改成功！新版本已创建')
-            return redirect('article:article_detail', pk=article.index_id)
+            return redirect('article:article_detail', index_id=article.index_id)
         else:
             print("表单验证失败:")
             print(form.errors)
@@ -808,7 +808,7 @@ def article_delete(request, index_id):
         # 验证用户权限：只有作者或管理员可以删除
         if article.author_id != request.user and not request.user.is_staff:
             messages.error(request, '您没有权限删除这篇文章')
-            return redirect('article:article_detail', pk=index_id)
+            return redirect('article:article_detail', index_id=index_id)
 
     except Article.DoesNotExist:
         return render(request, '404.html', status=404)
