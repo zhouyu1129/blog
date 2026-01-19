@@ -43,25 +43,30 @@ DEFAULT_FROM_EMAIL=your_email@qq.com
 # 网站配置
 SITE_URL=http://127.0.0.1:8000
 
+# 数据库配置
+DB_NAME=blog
+DB_USER=blogserver
+DB_PASSWORD=SERVER
+
 ### 3. 配置数据库
 
 注意修改settings.py中有关数据库的部分
-默认使用postgre sql作为数据库，使用账号blogserver密码SERVER连接到数据库blog
+默认使用postgre sql作为数据库，如果你使用的也是postgre sql，只需要修改.env文件
 
-### 4. 运行数据库迁移
+### 4. 运行数据库迁移 （如果使用runserver不需要查看此章节）
 
 ```bash
 python manage.py makemigrations
 python manage.py migrate
 ```
 
-### 5. 创建超级用户
+### 5. 创建超级用户 （如果使用runserver不需要查看此章节）
 
 ```bash
 python manage.py createsuperuser
 ```
 
-### 6. 启动开发服务器
+### 6. 启动开发服务器 （如果使用runserver不需要查看此章节）
 
 ```bash
 python manage.py runserver

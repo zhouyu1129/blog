@@ -72,6 +72,8 @@ TEMPLATES = [
         'DIRS': [
             BASE_DIR / 'templates',
             BASE_DIR / 'user' / 'templates',
+            BASE_DIR / 'article' / 'templates',
+            BASE_DIR / 'comment' / 'templates',
         ]
         ,
         'APP_DIRS': True,
@@ -95,9 +97,14 @@ WSGI_APPLICATION = 'blog.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'blog',
-        'USER': 'blogserver',
-        'PASSWORD': 'SERVER',
+        'NAME': os.getenv('DB_NAME', 'blog'),
+        'USER': os.getenv('DB_USER', 'blogserver'),
+        'PASSWORD': os.getenv('DB_PASSWORD', 'SERVER'),
+        'HOST': os.getenv('DB_HOST', 'localhost'),
+        'PORT': os.getenv('DB_PORT', '5432'),
+        'OPTIONS': {
+            'options': '-c search_path=public'
+        }
     }
 }
 
